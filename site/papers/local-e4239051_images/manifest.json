@@ -1,0 +1,17 @@
+{
+  "zotero_key": "local-e4239051",
+  "pdf_attachment_key": null,
+  "pdf_source": "local:bytes",
+  "count": 1,
+  "figures": [
+    {
+      "index": 1,
+      "filename": "local-e4239051_fig01.png",
+      "page": 6,
+      "width": 4322,
+      "height": 2214,
+      "bytes": 111134
+    }
+  ],
+  "image_dir": "papers/local-e4239051_images/"
+}

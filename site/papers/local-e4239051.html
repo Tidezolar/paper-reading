@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>GraphForge: Training Working Agents with Graph-Anchored Workspace Synthesis — Close Reading</title>
+<script>
+  (function(){
+    var v = '2026-07-14-v5';
+    if (location.search.indexOf('nocache=' + v) === -1) {
+      var url = location.origin + location.pathname + '?nocache=' + v + location.hash;
+      location.replace(url);
+    }
+  })();
+</script>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+  :root {
+    --accent-light: #F5B7AB;
+    --accent-mid:   #ED7E7D;
+    --accent-deep:  #C73B41;
+    --accent-tint:  #FDF6F4;
+    --accent-mid-rgb: 237,126,125;
+    --ink:        #423F3D;
+    --ink-soft:   #6E655E;
+    --ink-faint:  #7E756D;
+    --rule:       #EEE8E4;
+    --rule-lit:   #F5F0EC;
+    --border:     #E4DDD7;
+    --bg:         #FFFFFF;
+    --bg-soft:    #FAFAF8;
+    --bg-info:    #FDFCFB;
+
+    --font-body: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-display: "Spectral", Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+    --w-toc: 200px;
+    --w-notes: 250px;
+    --w-main: minmax(500px, 720px);
+    --gx: clamp(40px, 5vw, 72px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg); color: var(--ink);
+    line-height: 1.72; font-weight: 400;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .progress-rail {
+    position: fixed; top: 0; left: 0; right: 0; height: 1px;
+    background: var(--rule-lit); z-index: 120;
+  }
+  .progress-rail::after {
+    content: ""; display: block; height: 100%; width: 0%;
+    background: var(--accent-mid); transition: width .12s linear;
+  }
+
+  /* ── topbar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px clamp(28px, 4vw, 48px);
+    margin: 0 auto; flex-wrap: wrap; gap: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .tb-left {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  .tb-left .tb-key { color: var(--ink-soft); font-family: var(--font-mono); letter-spacing: .04em; }
+  .tb-right { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .tb-group { display: inline-flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+  .tb-sep { width: 1px; height: 18px; background: var(--rule); flex-shrink: 0; }
+  .tb-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); text-decoration: none; font-weight: 500;
+    padding: 5px 0; cursor: pointer; background: none; border: none;
+    font-family: var(--font-body);
+    border-bottom: 1px solid transparent; transition: color .2s, border-color .2s;
+  }
+  .tb-link:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .tb-link.is-connected { color: #8FB98A; border-bottom-color: #8FB98A; }
+  .tb-back { padding: 5px 0; }
+  .tb-back:hover { color: var(--accent-mid); border-bottom-color: transparent; }
+
+  .status-group { display: inline-flex; gap: 4px; align-items: center; }
+  .status-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 4px;
+  }
+  .status-btn {
+    font-size: 11px; letter-spacing: .04em; font-weight: 600;
+    color: var(--ink-faint); background: none;
+    border: 1px solid var(--rule); cursor: pointer;
+    padding: 3px 9px; font-family: var(--font-body); transition: all .18s;
+  }
+  .status-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+  .status-btn.is-active { color: var(--accent-deep); border-color: var(--accent-deep); background: var(--accent-tint); }
+
+  /* ── accent theme switcher ── */
+  .accent-group { display: inline-flex; gap: 6px; align-items: center; }
+  .accent-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 2px;
+  }
+  .accent-dot {
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--rule); padding: 0; background: none;
+    transition: transform .15s, box-shadow .15s; position: relative;
+  }
+  .accent-dot::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--dot);
+  }
+  .accent-dot[data-accent="rose"]  { --dot: #ED7E7D; }
+  .accent-dot[data-accent="green"] { --dot: #6FBF92; }
+  .accent-dot[data-accent="blue"]  { --dot: #6BA6D4; }
+  .accent-dot:hover { transform: scale(1.12); }
+  .accent-dot.is-active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--dot); }
+
+  /* ── three-column reader grid ── */
+  .reader {
+    display: grid;
+    grid-template-columns: var(--w-toc) minmax(500px, 1fr) var(--w-notes);
+    column-gap: var(--gx);
+    justify-content: space-between;
+    margin: 0 auto; padding: 0 clamp(28px, 4vw, 48px);
+    align-items: start;
+  }
+  .toc {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-toc);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-right: 4px;
+    font-size: 13px;
+  }
+  .notes {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-notes);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-left: 4px;
+    font-size: 13px;
+  }
+  .page { min-width: 0; padding-bottom: 96px; }
+
+  /* ── paper header ── */
+  .head {
+    padding: 48px 0 36px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .head-overline {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent-deep); font-weight: 600; margin-bottom: 18px;
+  }
+  .head-title {
+    font-size: clamp(28px, 4.6vw, 42px);
+    font-family: var(--font-display);
+    font-weight: 600; line-height: 1.16; letter-spacing: -.01em;
+    color: var(--ink); margin-bottom: 14px;
+  }
+  .head-sub {
+    font-size: 16px; line-height: 1.6; color: var(--ink-soft);
+    font-weight: 400; width: 100%; max-width: none;
+  }
+  .head-meta {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 26px; font-size: 13px; color: var(--ink-faint);
+  }
+  .head-meta > div { display: flex; align-items: center; gap: 8px; }
+  .hm-dot { width: 6px; height: 6px; background: var(--accent-mid); border-radius: 50%; flex-shrink: 0; }
+  .hm-val { color: var(--ink); font-weight: 500; }
+  .hm-val a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .hm-val a:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .hm-val .hm-time { font-family: var(--font-mono); }
+
+  .head-status { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+  .keywords-row { margin-top: 8px; }
+  .keywords-value { font-size: 13px; color: var(--ink-soft); }
+  .hs-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  /* ── module + headings (simplified) ── */
+  .module { scroll-margin-top: 96px; }
+  .sec-h {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 58px 0 16px; scroll-margin-top: 96px; cursor: pointer;
+    position: relative;
+  }
+  .sec-index {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 34px; height: 30px; padding: 0 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; letter-spacing: .02em;
+  }
+  .sec-name {
+    font-size: 23px; font-weight: 600; color: var(--ink);
+    font-family: var(--font-display);
+    letter-spacing: -.01em; line-height: 1.22;
+  }
+  .sec-hint {
+    margin-left: auto; align-self: center;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); opacity: 0; transition: opacity .2s;
+  }
+  .sec-h:hover .sec-hint { opacity: 1; }
+
+  .field-text {
+    font-size: 16px; line-height: 1.82; color: var(--ink);
+    padding: 4px 8px; margin: 0 -8px 4px; min-height: 1.6em;
+  }
+
+  /* Natural paragraph breaks inside prose fields (multi-<p>). */
+  .field-text p { margin: 0 0 0.92em; }
+  .field-text p:last-child { margin-bottom: 0; }
+  .sec-summary p { margin: 0 0 0.75em; }
+  .sec-summary p:last-child { margin-bottom: 0; }
+  .sec-analysis p { margin: 0 0 0.7em; }
+  .sec-analysis p:last-child { margin-bottom: 0; }
+
+  .block-lede {
+    max-width: 680px; margin: -2px 0 24px; color: var(--ink-soft);
+    font-size: 14px; line-height: 1.75;
+  }
+  .relevance-grid { margin: 0; }
+  .relevance-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .relevance-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .relevance-item h3 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .relevance-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .relevance-item .field-text { padding: 0; margin: 0; font-size: 15px; line-height: 1.75; }
+
+  /* Overview follows the same light, dot-led rhythm as the close-reading submodules. */
+  .overview-grid { margin: 0; }
+  .overview-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .overview-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .overview-item h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .overview-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .overview-item .field-text { padding: 0; margin: 0; font-size: 16px; line-height: 1.82; }
+  .overview-conclusion { background: transparent; }
+  .overview-conclusion .field-text + .field-text { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--accent-light); }
+  .relevance-wide { grid-column: 1 / -1; }
+  .relevance-item > .editable-list { margin: 0; }
+
+  @media (max-width: 760px) { .relevance-wide { grid-column: auto; } }
+
+  .editable, [contenteditable] {
+    outline: none; transition: background .15s, box-shadow .15s; border-radius: 1px;
+  }
+  .editable:focus, [contenteditable]:focus {
+    background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent-mid);
+  }
+  .editable:empty::before, [contenteditable]:empty::before {
+    content: attr(data-placeholder); color: var(--ink-faint); font-style: italic;
+  }
+
+  .body ol, .body ul {
+    margin: 12px 0 24px; padding: 0; list-style: none; counter-reset: ls;
+  }
+  .body ol li {
+    position: relative; padding: 7px 0 7px 40px;
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); counter-increment: ls;
+  }
+  .body ol li::before {
+    content: counter(ls); position: absolute; left: 0; top: 8px;
+    font-size: 13px; font-weight: 600; color: var(--accent-deep); width: 28px; text-align: right;
+  }
+  .editable-list li { padding-left: 40px; }
+
+  .key-concept {
+    margin: 18px 0 8px; padding: 22px 26px;
+    background: var(--bg); border: 1px solid var(--accent-light); position: relative;
+  }
+  .key-concept .kc-label {
+    position: absolute; top: -9px; left: 20px;
+    font-size: 10px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    background: var(--bg); padding: 2px 10px;
+  }
+
+  /* ── sub-modules inside 09 ── */
+  .submod { margin: 32px 0; }
+  .abstract-first { margin: 28px 0 0; }
+  .submod > h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 12px; scroll-margin-top: 96px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .submod > h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+
+  .quote-block {
+    margin: 22px 0; padding: 20px 24px;
+    background: var(--bg); border: 1px solid var(--rule);
+    position: relative;
+  }
+  .quote-block .qb-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .quote-block .qb-swatch {
+    width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--rule);
+  }
+  .quote-text {
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); font-style: italic;
+    padding: 4px 8px; margin: 0 -8px 8px; min-height: 1.5em;
+  }
+  .quote-note {
+    font-size: 13.5px; line-height: 1.6; color: var(--ink-soft);
+    padding: 4px 8px; margin: 0 -8px; min-height: 1.4em;
+    border-top: 1px dashed var(--rule-lit); padding-top: 10px;
+  }
+
+  /* ── figures ── */
+  .figures-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px; margin-top: 8px;
+  }
+  .figure-card {
+    border: 1px solid var(--rule); background: var(--bg); padding: 10px;
+    transition: border-color .18s;
+  }
+  .figure-card:hover { border-color: var(--accent-light); }
+  .figure-card img { width: 100%; height: auto; display: block; background: var(--bg-soft); }
+  .figure-meta {
+    margin-top: 8px; font-size: 11px; color: var(--ink-faint);
+    font-family: var(--font-mono); letter-spacing: .02em;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ── section-by-section module ── */
+  .sections-list { margin-top: 8px; display: flex; flex-direction: column; gap: 16px; }
+  .sec-card {
+    border: 1px solid var(--rule); background: var(--bg);
+    padding: 18px 22px; position: relative; scroll-margin-top: 96px;
+  }
+  .sec-card.lvl3 {
+    margin-left: 24px; background: var(--bg-soft);
+  }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 11px;
+    min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .lvl3 .sec-num { color: var(--ink-soft); border-color: var(--border); background: var(--bg); }
+  .sec-head h3 {
+    font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3;
+    letter-spacing: -.01em; margin: 0; flex: 1;
+  }
+  .sec-synthetic {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    color: var(--ink-faint); border: 1px solid var(--rule);
+    padding: 1px 6px; border-radius: 2px; margin-left: 6px; vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .sec-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .sec-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin: 10px 0 4px;
+  }
+  .sec-label-analysis { color: var(--ink-soft); }
+  .sec-summary { font-size: 15px; line-height: 1.78; }
+  .sec-analysis {
+    font-size: 14.5px; line-height: 1.74; color: var(--ink-soft);
+    background: var(--bg); padding: 10px 12px; border-left: 1px solid var(--rule-lit);
+  }
+
+  .info-box {
+    margin: 8px 0; padding: 20px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+    font-size: 14.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .info-box .info-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 14px; display: block;
+  }
+  .hl-group { margin-bottom: 16px; }
+  .hl-group:last-child { margin-bottom: 0; }
+  .hl-group-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: .10em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px;
+  }
+  .hl-swatch { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--rule); }
+  .hl-item {
+    font-size: 14px; line-height: 1.65; color: var(--ink);
+    padding: 6px 0 6px 14px; border-left: 1px solid var(--rule); margin-bottom: 6px;
+  }
+  .hl-item.is-comment { background: var(--accent-tint); border-left-color: var(--accent-mid); }
+  .hl-item .hl-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .hl-item .hl-comment { color: var(--accent-deep); font-size: 13px; display: block; margin-top: 2px; }
+
+  details.abstract-box {
+    margin: 8px 0 0; padding: 16px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+  }
+  details.abstract-box summary {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); cursor: pointer; list-style: none;
+  }
+  details.abstract-box summary::-webkit-details-marker { display: none; }
+  details.abstract-box summary::before { content: "+ "; }
+  details.abstract-box[open] summary::before { content: "− "; }
+  .abstract-text { margin-top: 12px; font-size: 14.5px; line-height: 1.7; color: var(--ink-soft); }
+
+  /* ── left TOC ── */
+  .toc-title {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    margin-bottom: 14px; padding-left: 12px;
+  }
+  .toc-list { display: flex; flex-direction: column; }
+  .toc-link, .toc-sublink {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 0 5px 12px; text-decoration: none; color: var(--ink-soft);
+    border-left: 1px solid transparent; line-height: 1.35;
+    transition: color .18s, border-color .18s, background .18s;
+  }
+  .toc-link:hover, .toc-sublink:hover { color: var(--ink); border-left-color: var(--accent-light); }
+  .toc-link.is-active, .toc-sublink.is-active {
+    color: var(--accent-deep); border-left-color: var(--accent-mid);
+    font-weight: 500; background: var(--accent-tint);
+  }
+  .toc-num {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    min-width: 20px; flex-shrink: 0;
+  }
+  .toc-label { flex: 1; }
+  .toc-sublink { padding-left: 30px; font-size: 12.5px; color: var(--ink-faint); }
+  .toc-subnum {
+    font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+    min-width: 24px; flex-shrink: 0;
+  }
+
+  /* ── right notes column ── */
+  .notes-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 12px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
+  }
+  .notes-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+  }
+  .notes-count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .notes-list { display: flex; flex-direction: column; gap: 16px; padding-top: 6px; }
+  .note-card {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .note-card:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 4px 20px rgba(var(--accent-mid-rgb),.08);
+  }
+  .note-card.is-active {
+    background: var(--bg);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 1px var(--accent-mid), 0 8px 28px rgba(var(--accent-mid-rgb),.12);
+    transform: translateY(-1px);
+  }
+  .note-jump {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: none; cursor: pointer; padding: 0 0 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--rule);
+    text-align: left; font-family: var(--font-body);
+  }
+  .note-jump:hover .note-name { color: var(--accent-deep); }
+  .note-num {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 30px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .note-name { font-size: 13.5px; font-weight: 600; color: var(--ink); transition: color .18s; }
+  .note-area {
+    width: 100%; min-height: 64px; resize: vertical;
+    border: 1px solid transparent; border-radius: 10px;
+    background: var(--bg); font-family: var(--font-body);
+    font-size: 13px; line-height: 1.62; color: var(--ink-soft);
+    outline: none; padding: 10px 12px;
+    transition: background .15s, border-color .15s, box-shadow .15s, color .15s;
+  }
+  .note-area::placeholder { color: var(--ink-faint); font-style: italic; }
+  .note-area:hover { background: var(--bg); }
+  .note-area:focus {
+    background: var(--bg); color: var(--ink);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 3px rgba(var(--accent-mid-rgb),.12);
+  }
+
+  .footnav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 40px 0 0; margin-top: 56px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-faint); letter-spacing: .06em;
+  }
+  .footnav a { color: var(--ink-soft); text-decoration: none; }
+  .footnav a:hover { color: var(--accent-mid); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg); padding: 11px 20px;
+    font-size: 13px; opacity: 0; transition: opacity .25s, transform .25s;
+    pointer-events: none; z-index: 200;
+  }
+  .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .save-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-faint); margin-left: 6px; vertical-align: middle; transition: background .2s;
+  }
+  .save-dot.is-dirty { background: var(--accent-mid); }
+  .save-dot.is-saved { background: #8FB98A; }
+  .save-dot.is-synced { background: #8FB98A; box-shadow: 0 0 0 2px rgba(143,185,138,.25); }
+
+  /* ── responsive: collapse to single column ── */
+  @media (max-width: 1100px) {
+    .reader { grid-template-columns: minmax(0, 1fr); }
+    .toc, .notes { display: none; }
+  }
+  @media (max-width: 640px) {
+    .head { padding: 32px 0 24px; margin-bottom: 24px; }
+    .head-title { font-size: 24px; }
+    .head-meta { gap: 12px; }
+    .key-concept, .quote-block { padding: 16px; }
+    .figures-grid { grid-template-columns: 1fr; }
+    .sec-h { gap: 10px; }
+    .sec-name { font-size: 20px; }
+  }
+
+  /* ── lightbox (click-to-enlarge figures) ── */
+  .lb-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(66,63,61,.92); padding: 5vh 5vw;
+    cursor: zoom-out; opacity: 0; transition: opacity .22s ease;
+  }
+  .lb-overlay.is-open { display: flex; opacity: 1; }
+  .lb-stage {
+    max-width: 92vw; max-height: 90vh; display: flex;
+    flex-direction: column; align-items: center; gap: 14px;
+  }
+  .lb-img {
+    max-width: 92vw; max-height: 80vh; object-fit: contain;
+    background: #fff; box-shadow: 0 12px 48px rgba(0,0,0,.4);
+    border-radius: 2px;
+  }
+  .lb-caption {
+    color: #fff; font-size: 13px; letter-spacing: .04em;
+    font-family: var(--font-mono); opacity: .82; text-align: center;
+  }
+  .lb-close {
+    position: absolute; top: 18px; right: 22px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff;
+    border: 1px solid rgba(255,255,255,.3); cursor: pointer;
+    font-size: 20px; line-height: 1; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .lb-close:hover { background: rgba(255,255,255,.24); }
+  .figure-card { cursor: zoom-in; }
+
+  /* ── accent themes: set <body data-accent="rose|green|blue"> ── */
+  [data-accent="green"] {
+    --accent-light: #B6DFC4; --accent-mid: #6FBF92; --accent-deep: #1F7A4F;
+    --accent-tint: #F1FAF4; --accent-mid-rgb: 111,191,146;
+  }
+  [data-accent="blue"] {
+    --accent-light: #AFD2EC; --accent-mid: #6BA6D4; --accent-deep: #286BA3;
+    --accent-tint: #F1F7FC; --accent-mid-rgb: 107,166,212;
+  }
+
+  /* When the user opted out of Zotero, hide Zotero-only modules. */
+  body[data-zotero="off"] .module-zotero { display: none; }
+
+</style>
+
+<!-- MathJax 3: render $...$, $$...$$, \(...\), \[...\] in note content. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' },
+    startup: {
+      ready: function () {
+        MathJax.startup.defaultReady();
+        MathJax.startup.promise.then(function () {
+          if (typeof window.litTypeset === 'function') window.litTypeset();
+        });
+      }
+    }
+  };
+</script>
+<script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body data-accent="blue" data-zotero="off">
+
+<div class="progress-rail" id="progressRail"></div>
+
+<header class="topbar">
+  <div class="tb-left">CLOSE READING &middot; <span class="tb-key">local-e4239051</span></div>
+  <div class="tb-right">
+    <a class="tb-link tb-back" href="../dashboard.html" title="返回总览 Dashboard" style="text-transform:none; letter-spacing:.04em;">&larr; 总览</a>
+    <span class="tb-sep"></span>
+    <div class="accent-group tb-group" id="accentGroup">
+      <span class="accent-label">Theme</span>
+      <button class="accent-dot" data-accent="rose" type="button" title="Rose"></button>
+      <button class="accent-dot" data-accent="green" type="button" title="Green"></button>
+      <button class="accent-dot" data-accent="blue" type="button" title="Blue"></button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <button class="tb-link" id="btnSync" type="button" title="Auto-save edits & status to a local folder">Sync Folder</button>
+      <button class="tb-link" id="btnExport" type="button">Export JSON</button>
+      <button class="tb-link" id="btnImport" type="button">Import JSON</button>
+      <span class="save-dot" id="saveDot" title="unsaved"></span>
+    </div>
+  </div>
+</header>
+
+<div class="reader">
+
+  <nav class="toc" id="toc"><div class="toc-title">目录 · Contents</div></nav>
+
+  <main class="page body">
+
+    <header class="head">
+      <div class="head-overline">PAPER &middot; 2026 &middot; arXiv</div>
+      <h1 class="head-title">GraphForge: Training Working Agents with Graph-Anchored Workspace Synthesis</h1>
+      <p class="head-sub">Qisheng Su et al.</p>
+      <div class="head-meta">
+        <div><span class="hm-dot"></span>Collections <span class="hm-val">Unfiled</span></div>
+        <div><span class="hm-dot"></span>DOI <span class="hm-val"><a href="https://doi.org/10.48550/arXiv.2609.38923" target="_blank" rel="noopener">10.48550/arXiv.2609.38923</a></span></div>
+        <div><span class="hm-dot"></span>Highlights <span class="hm-val">0</span></div>
+        <div><span class="hm-dot"></span>Reading time <span class="hm-val hm-time" id="readingTime">—</span></div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Status</span>
+        <div class="status-group">
+          <button class="status-btn" data-status="reading" type="button">Reading</button>
+          <button class="status-btn" data-status="done" type="button">Done</button>
+          <button class="status-btn" data-status="archived" type="button">Archived</button>
+        </div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Research</span>
+        <span class="hm-val">不基于任何研究项目</span>
+      </div>
+      
+    </header>
+
+    <section class="submod abstract-first" aria-label="Abstract 原文">
+      <h3 id="sub-abstract">Abstract（原文）</h3>
+      <details class="abstract-box">
+        <summary>展开 / 收起 Abstract 原文</summary>
+        <div class="abstract-text"></div>
+      </details>
+    </section>
+
+    <section class="module reader-block" id="sec-overview">
+      <h2 class="sec-h"><span class="sec-index">01</span><span class="sec-name">论文速览</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">先用几段话回答：这篇文章为什么要做、具体想解决什么、怎样做、最后得出了什么结论。</p>
+
+      <div class="overview-grid">
+        <div class="overview-item">
+          <h3>研究背景</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_background" data-placeholder="已有认识、现实问题与研究缺口…"><p>工作智能体要在多个PDF、表格和文档之间找依据、做计算并交付成果。训练这类能力需要<strong>真实且多样的工作区</strong>，以及能判断成果内容是否正确的<strong>任务专属评分标准</strong>。直接生成文件容易失真；仅抓取真实文件又难以自动验证完成质量。</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究目标</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_question" data-placeholder="作者真正想回答的问题或验证的假设…"><p>怎样批量构造由真实文件支撑、可执行且可追溯核验的工作任务，并用这些任务的高质量轨迹提升工作智能体？证据锚定的评分是否能改善后续轨迹选择？</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究内容</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_approach" data-placeholder="主要方法、研究设计或数据构建方式…"><ol class="markdown-list"><li><strong>职业种子控制覆盖</strong>：从O*NET中筛选数字化工作，用职业、活动、执行模式和文件类型约束多样性，再检索公开案例和真实文件。</li><li><strong>证据图联合生成任务与评分</strong>：节点关联来源文件和事实，边表达跨文件依赖。每条评分标准同时包含预期结果、证据锚点及检查步骤；执行者只看到任务与文件。</li><li><strong>先执行再修订和筛选</strong>：教师试做后修复任务或评分标准，检查产物结构、内容与工具行为，保留Q&gt;0.90的轨迹做SFT。</li><li><strong>自采样后做拒绝采样微调</strong>：SFT模型为新任务各生成最多4条轨迹，用评分选择优质轨迹再训练，并与无锚点评分和随机选择对照。</li></ol></div>
+        </div>
+        <div class="overview-item overview-conclusion">
+          <h3>主要结论</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_findings" data-placeholder="最重要的发现、结果或方法价值…"><ol class="markdown-list"><li><strong>2,169条长轨迹带来跨基准提升</strong>：27B模型的GDPVal/OpenHands从1380.0到1445.7；Workspace/Claude Code从56.0到63.7；电子表格准确率从10.3到24.0。</li><li><strong>收益具有一定迁移性</strong>：同一语料改善27B和35B-A3B，且从Codex采集的轨迹能改善其他执行框架；未覆盖职业同样获益。</li><li><strong>锚定选择在两个基准更好</strong>：35B后续RFT使Workspace再加4.0分、电子表格再加1.0分；GDPVal无锚定点估计更高，三组差异均未统计显著。</li><li><strong>评分器偏重结构缺失</strong>：删工作表降分0.377，但改行、数值和引用仅降约0.01–0.02，细粒度内容验证依然薄弱。</li></ol></div>
+          <div class="field-text editable" contenteditable="true" data-field="guide_insight" data-placeholder="这些结果意味着什么，解释边界在哪里…"><p>这项工作的可借鉴之处是让<strong>任务生成与验证共享可追溯的证据结构</strong>，并将交付物检查纳入数据准入。实验支持整套数据改善工作任务能力；证据图、修订和锚定各自的独立贡献尚未完全分离。证据定位更明确，也仍然需要更可靠的内容核验器。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="module reader-block" id="sec-deepread">
+      <h2 class="sec-h"><span class="sec-index">02</span><span class="sec-name">原文精读</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">沿着原文的章节顺序，区分每一节说了什么，以及这些内容如何支撑论文的论证。</p>
+
+      <div class="submod">
+        <h3 id="sub-sections">分章节总结与分析</h3>
+        <div id="sectionsContainer"><div class="sections-list"><section class="sec-card" data-index="0" data-num="" data-heading="Abstract" data-page="1"><div class="sec-head"><span class="sec-num"></span><h3>Abstract</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>提出真实文件、证据图和可核验评分标准组成的数据合成流程，并报告2,169条轨迹带来的训练收益。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>摘要中的有效验证应理解为<strong>证据可追溯</strong>；评分器识别细粒度错误的能力仍须结合后文审计判断。</p></div></div></section><section class="sec-card" data-index="1" data-num="1" data-heading="Introduction" data-page="1"><div class="sec-head"><span class="sec-num">1</span><h3>Introduction</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>真实工作智能体需要跨文件读取、调用工具并交付成果。已有合成路线分别面临文件真实性不足和缺乏任务专属评分标准的问题。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>动机连接了<strong>文件真实性与结果验证</strong>两项要求；已有方法的差异来自作者整理，缺少统一预算下的直接对照实验。</p></div></div></section><section class="sec-card" data-index="2" data-num="2" data-heading="Related Work" data-page="2"><div class="sec-head"><span class="sec-num">2</span><h3>Related Work</h3><span class="sec-page">p.2</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>比较通用智能体与工作智能体的数据合成路线，并梳理GDPVal、Workspace-Bench、电子表格等评测。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>不同数据集的规模单位含任务和轨迹，不能直接比较数量；表1属于功能比较，无法单独证明效果优势。</p></div></div></section><section class="sec-card" data-index="3" data-num="3" data-heading="Method" data-page="3"><div class="sec-head"><span class="sec-num">3</span><h3>Method</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>流程分为职业种子、真实工作区、证据图与评分标准、执行后修订、成果验收五步。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>关键设计是先确定职业覆盖，再从具体文件推导任务细节，减少没有文件依据的要求。</p></div></div></section><section class="sec-card lvl3" data-index="4" data-num="3.1" data-heading="O*Net-Grounded Task-Form Seeds" data-page="3"><div class="sec-head"><span class="sec-num">3.1</span><h3>O*Net-Grounded Task-Form Seeds</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>O*NET结合AI4Work的DIGITAL标记筛选后得到246种职业、891种DWA类型及3,419个职业—任务类型对。按职业、活动、执行模式与文件类型的边际覆盖贪心选种子。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>覆盖增益为各维度1/(1+已选计数)之和，鼓励稀缺类别；<strong>覆盖广度</strong>无法保证每类任务难度或专业真实性。</p></div></div></section><section class="sec-card lvl3" data-index="5" data-num="3.2" data-heading="Real-File Workspace Construction" data-page="4"><div class="sec-head"><span class="sec-num">3.2</span><h3>Real-File Workspace Construction</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>检索智能体将不指定公司与答案的种子实例化为公开案例，下载原生文件并去重。隐藏角色包括core、supporting、confuser、ambient。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>干扰与冗余模拟检索负担；公开文件可跨组织混合，其生态真实性仍需人工检验，公共可访问性也不等于任意再分发许可。</p></div></div></section><section class="sec-card lvl3" data-index="6" data-num="3.3" data-heading="Evidence Graphs And Verifiable Rubrics" data-page="4"><div class="sec-head"><span class="sec-num">3.3</span><h3>Evidence Graphs And Verifiable Rubrics</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>节点记录来源文件、事实字段与任务角色，边记录跨文件解释、比较与推导依赖。每条正向标准绑定交付物、要求、预期值、权重、锚点及核验程序。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p><strong>图是可检查的中间表示</strong>，其内容仍可能由模型错误抽取。执行智能体只见任务与文件，评分器另见证据锚点及检查说明，因此训练数据具有隐藏验证结构。</p></div></div></section><section class="sec-card lvl3" data-index="7" data-num="3.4" data-heading="Execution-Conditioned One-Step Revision" data-page="5"><div class="sec-head"><span class="sec-num">3.4</span><h3>Execution-Conditioned One-Step Revision</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>教师先执行一次，修订智能体据原文件、图、任务与执行结果做最小修改。任务文本不变且轨迹存在时复用，否则重跑教师。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>81.6%的初次执行得到复用，降低重复采样；缺少移除修订步骤的匹配消融，无法量化该模块对最终能力的独立贡献。</p></div></div></section><section class="sec-card lvl3" data-index="8" data-num="3.5" data-heading="Artifact-Level Admission And Trajectory Cleaning" data-page="5"><div class="sec-head"><span class="sec-num">3.5</span><h3>Artifact-Level Admission And Trajectory Cleaning</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>先确定性交验文件名、可读格式、工作表与公式，再由智能体评分器核验内容。正向加权得分扣除有直接证据的负向惩罚后归一化，并过滤退化工具行为。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>Q可以低于零，门槛分数不等于校准后的正确概率。<strong>结构检查与模型判断互补</strong>，但细微事实错误仍可能进入高分样本。</p></div></div></section><section class="sec-card" data-index="9" data-num="4" data-heading="Main Results" data-page="5"><div class="sec-head"><span class="sec-num">4</span><h3>Main Results</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>使用同一批GraphForge数据训练27B与35B-A3B，并在三个工作任务基准上测试SFT和后续拒绝采样微调。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>主结果验证整套合成数据的可用性；需要拆分消融才能进一步定位图、修订与筛选各自的作用。</p></div></div></section><section class="sec-card lvl3" data-index="10" data-num="4.1" data-heading="Training Data" data-page="5"><div class="sec-head"><span class="sec-num">4.1</span><h3>Training Data</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>3,638个实体化任务筛出2,153个达标任务，形成2,169条序列与2,150个唯一工作区。涵盖466种任务类型、15个职业部门、全部16种执行模式。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>每任务平均23.1个文件，每序列平均50步与162k tokens；<strong>少量轨迹包含大量上下文</strong>，不能直接等同低训练成本。PDF出现在96.7%的轨迹中，文件类型分布仍有偏向。</p></div></div></section><section class="sec-card lvl3" data-index="11" data-num="4.2" data-heading="Training And Evaluation Setup" data-page="6"><div class="sec-head"><span class="sec-num">4.2</span><h3>Training And Evaluation Setup</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>GLM-5.2承担检索、生成、修订、教师与评分。评测采用固定scaffold和pass@1；GDPVal-AA使用220任务，内部Bradley–Terry池以GLM-5.3/OpenHands=1667定标。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p><strong>Elo属于内部比较池</strong>，不能当作独立官方绝对分数；同一模型参与多阶段可能引入相关偏差。不同scaffold的比较需保持配置一致。</p></div></div></section><section class="sec-card lvl3" data-index="12" data-num="4.3" data-heading="Overall Comparison" data-page="7"><div class="sec-head"><span class="sec-num">4.3</span><h3>Overall Comparison</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>27B在OpenHands的GDPVal为1380.0→1445.7，Claude Code的Workspace分数为56.0→63.7，电子表格执行准确率为10.3→24.0。35B同样获益，跨scaffold方向一致。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>训练轨迹来自Codex而收益能迁移到其他scaffold，支持技能具有一定可迁移性。结果仍局限同一Qwen家族，不能外推全部模型。</p></div></div></section><section class="sec-card lvl3" data-index="13" data-num="4.4" data-heading="Rubric-Guided Rejection Fine-Tuning" data-page="8"><div class="sec-head"><span class="sec-num">4.4</span><h3>Rubric-Guided Rejection Fine-Tuning</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>35B SFT在2,000个新查询各采最多4条，锚定评分超过0.95且通过过滤后保留462条。三组固定查询、候选和优化预算，比较锚定、无锚定、随机选择。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>控制实验隔离<strong>查询内轨迹选择</strong>，但查询本身先由锚定流程筛入，未隔离全流程任务选择效应。锚定在Workspace和电子表格最好；GDPVal无锚定点估计更高，所有差异区间含零。</p></div></div></section><section class="sec-card lvl3" data-index="14" data-num="4.5" data-heading="Ablation Studies" data-page="8"><div class="sec-head"><span class="sec-num">4.5</span><h3>Ablation Studies</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>文件哈希无重合，最高相似的20组13-gram无实质共享；未覆盖职业也获益。删除目标工作表使评分下降0.377，行、数值、引用扰动分别仅下降0.018、0.022、0.013。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>污染审计降低直接复制疑虑，但不能排除所有语义或预训练污染。<strong>细粒度扰动响应接近非目标变化0.016</strong>，说明锚定无法保证精确内容核验。</p></div></div></section><section class="sec-card" data-index="15" data-num="5" data-heading="Conclusion" data-page="9"><div class="sec-head"><span class="sec-num">5</span><h3>Conclusion</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>总结真实文件与证据图联合驱动任务、评分和轨迹筛选，以及跨模型规模和执行框架的收益。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>结论对数据训练有效的支持较清楚；证据锚定普遍优于替代评分的说法需受RFT不确定性限制。</p></div></div></section><section class="sec-card" data-index="16" data-num="6" data-heading="Discussion Of Limitations" data-page="9"><div class="sec-head"><span class="sec-num">6</span><h3>Discussion Of Limitations</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>作者承认语料仅2,169条，未研究扩展规律，流水线受GLM-5.2能力约束，模型只覆盖同一家族。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>还需补充<strong>合成与训练总成本、专家评分一致性及模块消融</strong>，才能评估可扩展性和验证可靠性。</p></div></div></section><section class="sec-card" data-index="17" data-num="" data-heading="Ai Use Statement" data-page="11"><div class="sec-head"><span class="sec-num"></span><h3>Ai Use Statement</h3><span class="sec-page">p.11</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>披露使用生成式AI润色英文与辅助编码，并由作者检查内容。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这是作者对使用过程的声明，无法由论文实验独立验证。</p></div></div></section><section class="sec-card" data-index="18" data-num="" data-heading="Ethics Statement" data-page="11"><div class="sec-head"><span class="sec-num"></span><h3>Ethics Statement</h3><span class="sec-page">p.11</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>公开文档用于研究，按原使用条款发布，声明不额外收集或推断个人信息。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p><strong>公开来源与许可兼容性</strong>仍需逐文件审查；声明本身未提供完整授权审计。</p></div></div></section><section class="sec-card" data-index="19" data-num="" data-heading="Reproducibility Statement" data-page="11"><div class="sec-head"><span class="sec-num"></span><h3>Reproducibility Statement</h3><span class="sec-page">p.11</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>说明提供方法、训练配置并给出数据模型集合地址。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>本次精读未下载模型或逐项核验发布内容，复现可用性保留为待核验项。</p></div></div></section><section class="sec-card" data-index="20" data-num="" data-heading="References" data-page="11"><div class="sec-head"><span class="sec-num"></span><h3>References</h3><span class="sec-page">p.11</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>列出工作智能体、任务合成、职业分类和Elo评估相关文献。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>参考文献用于定位研究背景；本次未逐篇核验其结果与比较口径。</p></div></div></section><section class="sec-card" data-index="21" data-num="" data-heading="A Training Configurations" data-page="14"><div class="sec-head"><span class="sec-num"></span><h3>A Training Configurations</h3><span class="sec-page">p.14</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>SFT使用Muon、3 epochs、峰值学习率2e-5、全局batch 8；RFT为1 epoch、1e-6；最大序列262,144，启用packing，超长完整序列排除。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>长上下文与完整推理工具轨迹是复现关键。附录没有给出足够明确的GPU型号、数量和总GPU时长，成本仍不透明。</p></div></div></section><section class="sec-card" data-index="22" data-num="" data-heading="B Contamination Audit" data-page="14"><div class="sec-head"><span class="sec-num"></span><h3>B Contamination Audit</h3><span class="sec-page">p.14</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>2,150个工作区含49,750个文件实例、39,201个唯一哈希，与GDPVal的260个唯一文件零重合。覆盖与未覆盖职业胜率差0.047，95%区间[-0.079,0.175]。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>未覆盖职业表现支持迁移，但区间跨零，不能声称该组优于覆盖组。仅人工审查最相似20对文本不能构成穷尽性排除。</p></div></div></section><section class="sec-card" data-index="23" data-num="" data-heading="C Gdpval Elo Confidence Intervals" data-page="15"><div class="sec-head"><span class="sec-num"></span><h3>C Gdpval Elo Confidence Intervals</h3><span class="sec-page">p.15</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>GDPVal主表区间来自10,000次边结果bootstrap并重拟合完整比较图，固定GLM-5.3锚点，还保留一个未展示的桥节点。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>区间条件依赖比较图和锚定方案；主表单个分数区间不能直接替代配对差异检验。</p></div></div></section><section class="sec-card" data-index="24" data-num="" data-heading="D Rft Elo Confidence Intervals" data-page="15"><div class="sec-head"><span class="sec-num"></span><h3>D Rft Elo Confidence Intervals</h3><span class="sec-page">p.15</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>RFT相对固定SFT锚点直接比较，按任务UUID联合bootstrap 10,000次；三组Elo差异区间全部包含零。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这些是<strong>条件置信区间</strong>，未传播SFT锚点估计误差；GDPVal额外收益和组间排序均需保留不确定性。</p></div></div></section></div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-quotes">关键引文</h3>
+        <div id="quoteContainer"><div class="field-text" style="color:var(--ink-faint);font-style:italic;">尚无关键引文。在 Zotero 高亮会自动出现在下方"Highlights from Zotero"。</div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-figures">论文图表</h3>
+        <div id="figuresContainer"><div class="figures-grid"><div class="figure-card"><img src="local-e4239051_images/local-e4239051_fig01.png" alt="Figure p.6" loading="lazy"><div class="figure-meta"><span>p.6</span><span>4322×2214</span></div></div></div></div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-highlights">Zotero 高亮</h3>
+        <div class="info-box">
+          <span class="info-label">Highlights from Zotero (0)</span>
+          <div id="highlightsBox"><div style="color:var(--ink-faint);font-style:italic;">未检测到 PDF 高亮。摘要基于 abstract 生成。</div></div>
+        </div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-notes">Zotero 笔记</h3>
+        <div class="info-box">
+          <span class="info-label">Notes from Zotero</span>
+          <div id="notesBox"><div style="color:var(--ink-faint);font-style:italic;">无 Zotero 笔记。</div></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="module reader-block" id="sec-relevance">
+      <h2 class="sec-h"><span class="sec-index">03</span><span class="sec-name">参考意义</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">把论文放回实际研究和复现决策中：它有什么价值，代价和风险是什么，还留下哪些问题。</p>
+
+      <div class="relevance-grid">
+        <div class="relevance-item">
+          <h3>风险与局限</h3>
+          <ol class="editable-list" contenteditable="true" data-field="risks"><li>只有同一Qwen家族的两种模型，缺少数据规模规律和模块级完整消融。合成与评分都依赖GLM-5.2，可能产生相关偏差；评分器漏检细微错误。GDPVal只用220任务的内部Elo池，RFT差异区间含零；训练与合成总成本未充分披露。</li><li>锚定与无锚定RFT共享先经锚定流程选入的462个查询；该控制只能识别查询内选择效应。</li><li>未在同一教师、相同任务数与token预算下对照其他数据流水线，无法单独估计证据图带来的增益。</li><li>公开文件组合、职业标签与专业工作真实性之间仍有差距；公开来源许可需逐项核验。</li></ol>
+          <div class="field-text editable" contenteditable="true" data-field="guide_limitations" data-placeholder="最重要的边界、威胁或替代解释…"><p>只有同一Qwen家族的两种模型，缺少数据规模规律和模块级完整消融。合成与评分都依赖GLM-5.2，可能产生相关偏差；评分器漏检细微错误。GDPVal只用220任务的内部Elo池，RFT差异区间含零；训练与合成总成本未充分披露。</p></div>
+        </div>
+        <div class="relevance-item">
+          <h3>成本与复现条件</h3>
+          <div class="field-text editable" contenteditable="true" data-field="cost" data-placeholder="复现本文需要多少数据、算力、专家或工程投入…"><p>SFT用Muon、3 epochs、峰值学习率2e-5、最低1e-6、cosine、warmup 0.10、weight decay 0.05、global batch 8；RFT用35B SFT初始化，1 epoch、峰值1e-6、最低1e-7。最大序列262,144，packing开启，完整超长样本排除。需支持<strong>长上下文、工具执行与多格式文件</strong>的环境；GLM-5.2贯穿合成及评分。未核验发布集合的实际完整性，论文未充分报告总算力和费用。</p></div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>与我研究的关联</h3>
+          <div class="key-concept">
+            <span class="kc-label">Why this matters</span>
+            <div class="field-text editable" contenteditable="true" data-field="relevance_to_my_work" data-placeholder="与当前研究的具体问题、设计选择或测量难题的关联…"><p>对研究<strong>工作智能体数据合成与自动验收</strong>具有一般参考意义：为每个要求保存来源位置、预期计算与检查程序，能使数据质量问题更易追踪。一个值得验证的设计是为数值和表格加入确定性检查，并以专家标注的错误集校准模型评分器。本条为方法延伸建议，论文未直接验证。</p></div>
+          </div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3 id="sub-questions">待追问</h3>
+          <ol class="editable-list" contenteditable="true" data-field="open_questions"><li>图、试执行修订和锚定分别贡献多少？在固定教师与token预算下能否拆分？</li><li>加入代码计算和单元格级核验，能否减少高分错误轨迹？</li><li>随机查询集上的锚定筛选是否仍有优势？</li><li>提升数据规模或更换模型家族后，收益如何变化？</li></ol>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>我的笔记</h3>
+          <div class="key-concept">
+            <span class="kc-label">Your notes · 支持 Markdown 与 LaTeX 公式</span>
+            <div class="field-text editable" contenteditable="true" data-field="custom_notes" data-placeholder="你自己的笔记、公式、待办… 行内用 $…$，独立公式用 $$…$$"><p>精读版本：arXiv:2609.38923v3（2026-10-22），全文15页。仅使用本地Python提取文本生成分析；无Zotero标注，因此未生成原文高亮引句。</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <nav class="footnav">
+      <div>GENERATED 2026-10-30T19:48:34+0800 &middot; paper-notes</div>
+      <a href="../dashboard.html">← Back to Dashboard</a>
+    </nav>
+
+  </main>
+
+  <aside class="notes" id="notes">
+    <div class="notes-head">
+      <span class="notes-title">批注 · Notes</span>
+      <span class="notes-count" id="notesCount">0</span>
+    </div>
+    <div class="notes-list">
+      <div class="note-card" data-module="sec-overview">
+        <button class="note-jump" data-target="sec-overview" type="button"><span class="note-num">01</span><span class="note-name">论文速览</span></button>
+        <textarea class="note-area" data-module="sec-overview" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-deepread">
+        <button class="note-jump" data-target="sec-deepread" type="button"><span class="note-num">02</span><span class="note-name">原文精读</span></button>
+        <textarea class="note-area" data-module="sec-deepread" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-relevance">
+        <button class="note-jump" data-target="sec-relevance" type="button"><span class="note-num">03</span><span class="note-name">参考意义</span></button>
+        <textarea class="note-area" data-module="sec-relevance" placeholder="对这一模块的备注…"></textarea>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importInput" accept=".json" style="display:none">
+
+<div class="lb-overlay" id="lbOverlay" aria-hidden="true">
+  <button class="lb-close" id="lbClose" type="button" aria-label="Close">×</button>
+  <div class="lb-stage">
+    <img class="lb-img" id="lbImg" alt="enlarged figure" src="">
+    <div class="lb-caption" id="lbCaption"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var ZKEY = "local-e4239051";
+  var LS_KEY = "litreader:" + ZKEY + ":edits";
+  var LS_STATUS = "litreader:" + ZKEY + ":status";
+  var LS_ACCENT = "litreader:" + ZKEY + ":accent";
+  var LS_DIR = "litreader:" + ZKEY + ":dirhandle";
+  var INITIAL = {"objective": "GraphForge以真实文件证据图共同生成工作任务和评分标准，筛选2,169条执行轨迹训练Qwen智能体，在三个工作任务基准上取得收益，但细粒度核验和锚定优势仍有边界。", "problem_landscape": "工作智能体要在多个PDF、表格和文档之间找依据、做计算并交付成果。训练这类能力需要**真实且多样的工作区**，以及能判断成果内容是否正确的**任务专属评分标准**。直接生成文件容易失真；仅抓取真实文件又难以自动验证完成质量。", "approach": "1. **职业种子控制覆盖**：从O*NET中筛选数字化工作，用职业、活动、执行模式和文件类型约束多样性，再检索公开案例和真实文件。\n2. **证据图联合生成任务与评分**：节点关联来源文件和事实，边表达跨文件依赖。每条评分标准同时包含预期结果、证据锚点及检查步骤；执行者只看到任务与文件。\n3. **先执行再修订和筛选**：教师试做后修复任务或评分标准，检查产物结构、内容与工具行为，保留Q>0.90的轨迹做SFT。\n4. **自采样后做拒绝采样微调**：SFT模型为新任务各生成最多4条轨迹，用评分选择优质轨迹再训练，并与无锚点评分和随机选择对照。\n\n正向标准形式为$(d_k,r_k,z_k,w_k,A_k,\\phi_k)$，对应交付物、要求、预期值或计算、权重、证据节点集合和检查过程。准入分数为正向加权满足度减负向违规惩罚，再除以正向权重总和。图与评分标准属于离线数据流水线的隐藏结构，未显示为运行时策略模型的新架构。", "impact": "提供**职业覆盖—真实工作区—证据图—任务与rubric—执行修订—轨迹准入**的完整数据合成流程，另用匹配候选池分析评分标准对自采样轨迹选择的作用。", "risks": ["只有同一Qwen家族的两种模型，缺少数据规模规律和模块级完整消融。合成与评分都依赖GLM-5.2，可能产生相关偏差；评分器漏检细微错误。GDPVal只用220任务的内部Elo池，RFT差异区间含零；训练与合成总成本未充分披露。", "锚定与无锚定RFT共享先经锚定流程选入的462个查询；该控制只能识别查询内选择效应。", "未在同一教师、相同任务数与token预算下对照其他数据流水线，无法单独估计证据图带来的增益。", "公开文件组合、职业标签与专业工作真实性之间仍有差距；公开来源许可需逐项核验。"], "cost": "SFT用Muon、3 epochs、峰值学习率2e-5、最低1e-6、cosine、warmup 0.10、weight decay 0.05、global batch 8；RFT用35B SFT初始化，1 epoch、峰值1e-6、最低1e-7。最大序列262,144，packing开启，完整超长样本排除。需支持**长上下文、工具执行与多格式文件**的环境；GLM-5.2贯穿合成及评分。未核验发布集合的实际完整性，论文未充分报告总算力和费用。", "experiments_results": "1. **2,169条长轨迹带来跨基准提升**：27B模型的GDPVal/OpenHands从1380.0到1445.7；Workspace/Claude Code从56.0到63.7；电子表格准确率从10.3到24.0。\n2. **收益具有一定迁移性**：同一语料改善27B和35B-A3B，且从Codex采集的轨迹能改善其他执行框架；未覆盖职业同样获益。\n3. **锚定选择在两个基准更好**：35B后续RFT使Workspace再加4.0分、电子表格再加1.0分；GDPVal无锚定点估计更高，三组差异均未统计显著。\n4. **评分器偏重结构缺失**：删工作表降分0.377，但改行、数值和引用仅降约0.01–0.02，细粒度内容验证依然薄弱。\n\n表2的35B模型在GDPVal/OpenHands为1260.6→1362.3，Workspace/Claude Code为55.9→59.7，电子表格为2.8→19.3。表3的RFT仅对35B开展；GDPVal锚定组+7.2/+11.0 Elo，无锚定组+34.1/+25.3，但附录D所有差异区间含零。\n\nGDPVal-AA为220个gold任务，内部Bradley–Terry池以GLM-5.3/OpenHands=1667定标；Workspace-Bench-Lite报告micro分数，SpreadsheetBench II报告执行准确率。全部pass@1，同模型比较保持scaffold一致。污染审计检查文件哈希与13-gram，并划分覆盖/未覆盖职业。", "relevance_to_my_work": "对研究**工作智能体数据合成与自动验收**具有一般参考意义：为每个要求保存来源位置、预期计算与检查程序，能使数据质量问题更易追踪。一个值得验证的设计是为数值和表格加入确定性检查，并以专家标注的错误集校准模型评分器。本条为方法延伸建议，论文未直接验证。", "custom_notes": "精读版本：arXiv:2609.38923v3（2026-10-22），全文15页。仅使用本地Python提取文本生成分析；无Zotero标注，因此未生成原文高亮引句。", "guide_background": "工作智能体要在多个PDF、表格和文档之间找依据、做计算并交付成果。训练这类能力需要**真实且多样的工作区**，以及能判断成果内容是否正确的**任务专属评分标准**。直接生成文件容易失真；仅抓取真实文件又难以自动验证完成质量。", "guide_question": "怎样批量构造由真实文件支撑、可执行且可追溯核验的工作任务，并用这些任务的高质量轨迹提升工作智能体？证据锚定的评分是否能改善后续轨迹选择？", "guide_approach": "1. **职业种子控制覆盖**：从O*NET中筛选数字化工作，用职业、活动、执行模式和文件类型约束多样性，再检索公开案例和真实文件。\n2. **证据图联合生成任务与评分**：节点关联来源文件和事实，边表达跨文件依赖。每条评分标准同时包含预期结果、证据锚点及检查步骤；执行者只看到任务与文件。\n3. **先执行再修订和筛选**：教师试做后修复任务或评分标准，检查产物结构、内容与工具行为，保留Q>0.90的轨迹做SFT。\n4. **自采样后做拒绝采样微调**：SFT模型为新任务各生成最多4条轨迹，用评分选择优质轨迹再训练，并与无锚点评分和随机选择对照。", "guide_findings": "1. **2,169条长轨迹带来跨基准提升**：27B模型的GDPVal/OpenHands从1380.0到1445.7；Workspace/Claude Code从56.0到63.7；电子表格准确率从10.3到24.0。\n2. **收益具有一定迁移性**：同一语料改善27B和35B-A3B，且从Codex采集的轨迹能改善其他执行框架；未覆盖职业同样获益。\n3. **锚定选择在两个基准更好**：35B后续RFT使Workspace再加4.0分、电子表格再加1.0分；GDPVal无锚定点估计更高，三组差异均未统计显著。\n4. **评分器偏重结构缺失**：删工作表降分0.377，但改行、数值和引用仅降约0.01–0.02，细粒度内容验证依然薄弱。", "guide_insight": "这项工作的可借鉴之处是让**任务生成与验证共享可追溯的证据结构**，并将交付物检查纳入数据准入。实验支持整套数据改善工作任务能力；证据图、修订和锚定各自的独立贡献尚未完全分离。证据定位更明确，也仍然需要更可靠的内容核验器。", "guide_limitations": "只有同一Qwen家族的两种模型，缺少数据规模规律和模块级完整消融。合成与评分都依赖GLM-5.2，可能产生相关偏差；评分器漏检细微错误。GDPVal只用220任务的内部Elo池，RFT差异区间含零；训练与合成总成本未充分披露。", "paper_type": ["method", "system"], "keywords": ["工作智能体", "训练数据合成", "证据图", "真实文件", "SFT", "拒绝采样微调"], "research_question": "怎样批量构造由真实文件支撑、可执行且可追溯核验的工作任务，并用这些任务的高质量轨迹提升工作智能体？证据锚定的评分是否能改善后续轨迹选择？", "data_or_materials": "公开真实文件组成2,150个唯一工作区，含39,201个唯一文件哈希；2,153个合格任务形成2,169条训练序列。平均每任务23.1个输入文件，每序列50步、162k tokens，覆盖466种O*NET任务类型与16种执行模式。", "interpretation": "这项工作的可借鉴之处是让**任务生成与验证共享可追溯的证据结构**，并将交付物检查纳入数据准入。实验支持整套数据改善工作任务能力；证据图、修订和锚定各自的独立贡献尚未完全分离。证据定位更明确，也仍然需要更可靠的内容核验器。", "evidence_map": [{"claim": "SFT带来三个基准的提升", "evidence": "表2，第7页", "status": "reported"}, {"claim": "具有跨执行框架与职业的迁移证据", "evidence": "第4.3节、表4c及附录B", "status": "supported_inference"}, {"claim": "锚定RFT在Workspace与电子表格点估计最好", "evidence": "表3，第8页", "status": "reported"}, {"claim": "GDPVal上RFT差异未显著", "evidence": "附录D、表7，第15页", "status": "reported"}, {"claim": "评分器细粒度验证薄弱", "evidence": "表4d：数值扰动-0.022，非目标平均绝对变化0.016", "status": "supported_inference"}, {"claim": "确定性数值核验可能改善筛选", "evidence": "由第4.5节失败分析提出，未实验验证", "status": "speculation"}], "uncertainties": ["缺少逐模块消融，不能将整套SFT收益归因于证据图单一因素。", "未报告足够的评分器对专家判断校准、扰动样本细节与细粒度漏检率。", "GDPVal RFT所有Elo差异区间含零，排序不确定。", "总合成调用成本、训练GPU数量与时长，以及发布文件完整性未核验。", "污染审计不能排除基础模型预训练暴露及所有语义相似。"], "open_questions": ["图、试执行修订和锚定分别贡献多少？在固定教师与token预算下能否拆分？", "加入代码计算和单元格级核验，能否减少高分错误轨迹？", "随机查询集上的锚定筛选是否仍有优势？", "提升数据规模或更换模型家族后，收益如何变化？"], "key_quotes": [], "module_notes": {}, "schema_version": 4, "zotero_key": "local-e4239051", "sections": [{"heading": "Abstract", "number": "", "page": 1, "level": 2, "summary": "提出真实文件、证据图和可核验评分标准组成的数据合成流程，并报告2,169条轨迹带来的训练收益。", "analysis": "摘要中的有效验证应理解为**证据可追溯**；评分器识别细粒度错误的能力仍须结合后文审计判断。"}, {"heading": "Introduction", "number": "1", "page": 1, "level": 2, "summary": "真实工作智能体需要跨文件读取、调用工具并交付成果。已有合成路线分别面临文件真实性不足和缺乏任务专属评分标准的问题。", "analysis": "动机连接了**文件真实性与结果验证**两项要求；已有方法的差异来自作者整理，缺少统一预算下的直接对照实验。"}, {"heading": "Related Work", "number": "2", "page": 2, "level": 2, "summary": "比较通用智能体与工作智能体的数据合成路线，并梳理GDPVal、Workspace-Bench、电子表格等评测。", "analysis": "不同数据集的规模单位含任务和轨迹，不能直接比较数量；表1属于功能比较，无法单独证明效果优势。"}, {"heading": "Method", "number": "3", "page": 3, "level": 2, "summary": "流程分为职业种子、真实工作区、证据图与评分标准、执行后修订、成果验收五步。", "analysis": "关键设计是先确定职业覆盖，再从具体文件推导任务细节，减少没有文件依据的要求。"}, {"heading": "O*Net-Grounded Task-Form Seeds", "number": "3.1", "page": 3, "level": 3, "summary": "O*NET结合AI4Work的DIGITAL标记筛选后得到246种职业、891种DWA类型及3,419个职业—任务类型对。按职业、活动、执行模式与文件类型的边际覆盖贪心选种子。", "analysis": "覆盖增益为各维度1/(1+已选计数)之和，鼓励稀缺类别；**覆盖广度**无法保证每类任务难度或专业真实性。"}, {"heading": "Real-File Workspace Construction", "number": "3.2", "page": 4, "level": 3, "summary": "检索智能体将不指定公司与答案的种子实例化为公开案例，下载原生文件并去重。隐藏角色包括core、supporting、confuser、ambient。", "analysis": "干扰与冗余模拟检索负担；公开文件可跨组织混合，其生态真实性仍需人工检验，公共可访问性也不等于任意再分发许可。"}, {"heading": "Evidence Graphs And Verifiable Rubrics", "number": "3.3", "page": 4, "level": 3, "summary": "节点记录来源文件、事实字段与任务角色，边记录跨文件解释、比较与推导依赖。每条正向标准绑定交付物、要求、预期值、权重、锚点及核验程序。", "analysis": "**图是可检查的中间表示**，其内容仍可能由模型错误抽取。执行智能体只见任务与文件，评分器另见证据锚点及检查说明，因此训练数据具有隐藏验证结构。"}, {"heading": "Execution-Conditioned One-Step Revision", "number": "3.4", "page": 5, "level": 3, "summary": "教师先执行一次，修订智能体据原文件、图、任务与执行结果做最小修改。任务文本不变且轨迹存在时复用，否则重跑教师。", "analysis": "81.6%的初次执行得到复用，降低重复采样；缺少移除修订步骤的匹配消融，无法量化该模块对最终能力的独立贡献。"}, {"heading": "Artifact-Level Admission And Trajectory Cleaning", "number": "3.5", "page": 5, "level": 3, "summary": "先确定性交验文件名、可读格式、工作表与公式，再由智能体评分器核验内容。正向加权得分扣除有直接证据的负向惩罚后归一化，并过滤退化工具行为。", "analysis": "Q可以低于零，门槛分数不等于校准后的正确概率。**结构检查与模型判断互补**，但细微事实错误仍可能进入高分样本。"}, {"heading": "Main Results", "number": "4", "page": 5, "level": 2, "summary": "使用同一批GraphForge数据训练27B与35B-A3B，并在三个工作任务基准上测试SFT和后续拒绝采样微调。", "analysis": "主结果验证整套合成数据的可用性；需要拆分消融才能进一步定位图、修订与筛选各自的作用。"}, {"heading": "Training Data", "number": "4.1", "page": 5, "level": 3, "summary": "3,638个实体化任务筛出2,153个达标任务，形成2,169条序列与2,150个唯一工作区。涵盖466种任务类型、15个职业部门、全部16种执行模式。", "analysis": "每任务平均23.1个文件，每序列平均50步与162k tokens；**少量轨迹包含大量上下文**，不能直接等同低训练成本。PDF出现在96.7%的轨迹中，文件类型分布仍有偏向。"}, {"heading": "Training And Evaluation Setup", "number": "4.2", "page": 6, "level": 3, "summary": "GLM-5.2承担检索、生成、修订、教师与评分。评测采用固定scaffold和pass@1；GDPVal-AA使用220任务，内部Bradley–Terry池以GLM-5.3/OpenHands=1667定标。", "analysis": "**Elo属于内部比较池**，不能当作独立官方绝对分数；同一模型参与多阶段可能引入相关偏差。不同scaffold的比较需保持配置一致。"}, {"heading": "Overall Comparison", "number": "4.3", "page": 7, "level": 3, "summary": "27B在OpenHands的GDPVal为1380.0→1445.7，Claude Code的Workspace分数为56.0→63.7，电子表格执行准确率为10.3→24.0。35B同样获益，跨scaffold方向一致。", "analysis": "训练轨迹来自Codex而收益能迁移到其他scaffold，支持技能具有一定可迁移性。结果仍局限同一Qwen家族，不能外推全部模型。"}, {"heading": "Rubric-Guided Rejection Fine-Tuning", "number": "4.4", "page": 8, "level": 3, "summary": "35B SFT在2,000个新查询各采最多4条，锚定评分超过0.95且通过过滤后保留462条。三组固定查询、候选和优化预算，比较锚定、无锚定、随机选择。", "analysis": "控制实验隔离**查询内轨迹选择**，但查询本身先由锚定流程筛入，未隔离全流程任务选择效应。锚定在Workspace和电子表格最好；GDPVal无锚定点估计更高，所有差异区间含零。"}, {"heading": "Ablation Studies", "number": "4.5", "page": 8, "level": 3, "summary": "文件哈希无重合，最高相似的20组13-gram无实质共享；未覆盖职业也获益。删除目标工作表使评分下降0.377，行、数值、引用扰动分别仅下降0.018、0.022、0.013。", "analysis": "污染审计降低直接复制疑虑，但不能排除所有语义或预训练污染。**细粒度扰动响应接近非目标变化0.016**，说明锚定无法保证精确内容核验。"}, {"heading": "Conclusion", "number": "5", "page": 9, "level": 2, "summary": "总结真实文件与证据图联合驱动任务、评分和轨迹筛选，以及跨模型规模和执行框架的收益。", "analysis": "结论对数据训练有效的支持较清楚；证据锚定普遍优于替代评分的说法需受RFT不确定性限制。"}, {"heading": "Discussion Of Limitations", "number": "6", "page": 9, "level": 2, "summary": "作者承认语料仅2,169条，未研究扩展规律，流水线受GLM-5.2能力约束，模型只覆盖同一家族。", "analysis": "还需补充**合成与训练总成本、专家评分一致性及模块消融**，才能评估可扩展性和验证可靠性。"}, {"heading": "Ai Use Statement", "number": "", "page": 11, "level": 2, "summary": "披露使用生成式AI润色英文与辅助编码，并由作者检查内容。", "analysis": "这是作者对使用过程的声明，无法由论文实验独立验证。"}, {"heading": "Ethics Statement", "number": "", "page": 11, "level": 2, "summary": "公开文档用于研究，按原使用条款发布，声明不额外收集或推断个人信息。", "analysis": "**公开来源与许可兼容性**仍需逐文件审查；声明本身未提供完整授权审计。"}, {"heading": "Reproducibility Statement", "number": "", "page": 11, "level": 2, "summary": "说明提供方法、训练配置并给出数据模型集合地址。", "analysis": "本次精读未下载模型或逐项核验发布内容，复现可用性保留为待核验项。"}, {"heading": "References", "number": "", "page": 11, "level": 2, "summary": "列出工作智能体、任务合成、职业分类和Elo评估相关文献。", "analysis": "参考文献用于定位研究背景；本次未逐篇核验其结果与比较口径。"}, {"heading": "A Training Configurations", "number": "", "page": 14, "level": 2, "summary": "SFT使用Muon、3 epochs、峰值学习率2e-5、全局batch 8；RFT为1 epoch、1e-6；最大序列262,144，启用packing，超长完整序列排除。", "analysis": "长上下文与完整推理工具轨迹是复现关键。附录没有给出足够明确的GPU型号、数量和总GPU时长，成本仍不透明。", "source_number": "A"}, {"heading": "B Contamination Audit", "number": "", "page": 14, "level": 2, "summary": "2,150个工作区含49,750个文件实例、39,201个唯一哈希，与GDPVal的260个唯一文件零重合。覆盖与未覆盖职业胜率差0.047，95%区间[-0.079,0.175]。", "analysis": "未覆盖职业表现支持迁移，但区间跨零，不能声称该组优于覆盖组。仅人工审查最相似20对文本不能构成穷尽性排除。", "source_number": "B"}, {"heading": "C Gdpval Elo Confidence Intervals", "number": "", "page": 15, "level": 2, "summary": "GDPVal主表区间来自10,000次边结果bootstrap并重拟合完整比较图，固定GLM-5.3锚点，还保留一个未展示的桥节点。", "analysis": "区间条件依赖比较图和锚定方案；主表单个分数区间不能直接替代配对差异检验。", "source_number": "C"}, {"heading": "D Rft Elo Confidence Intervals", "number": "", "page": 15, "level": 2, "summary": "RFT相对固定SFT锚点直接比较，按任务UUID联合bootstrap 10,000次；三组Elo差异区间全部包含零。", "analysis": "这些是**条件置信区间**，未传播SFT锚点估计误差；GDPVal额外收益和组间排序均需保留不确定性。", "source_number": "D"}], "generated_at": "2026-10-30T19:48:34+0800", "research_context_id": null, "_field_updated_at": {}, "built_at": "2026-10-30T19:48:34+0800"};
+
+  // ── prose (multi-paragraph) fields ──
+  // These render as <p> blocks so \n\n in the text shows as real paragraphs.
+  // writeProse/readProse keep the round-trip lossless (text ⇄ <p> DOM).
+  var PROSE_FIELDS = {
+    objective:1, problem_landscape:1, approach:1, impact:1,
+    cost:1, experiments_results:1, relevance_to_my_work:1, custom_notes:1,
+    guide_background:1, guide_question:1, guide_approach:1,
+    guide_findings:1, guide_insight:1, guide_limitations:1
+  };
+  function isProseField(f){ return PROSE_FIELDS[f] === 1; }
+  // Lightweight, safe inline markdown. HTML is escaped first so raw tags can't
+  // inject; LaTeX delimiters ($…$, \(…\), $$…$$, \[…\]) survive untouched for
+  // MathJax to typeset afterwards. Works the same in every prose module,
+  // section summary/analysis, and quote block.
+  function mdInline(s){
+    s = String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic uses * only (not _), because _ is ubiquitous in LaTeX
+    // subscripts (x_i, _{i=1}) and would otherwise be mangled.
+    s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)/g, function(full, label, url){
+      var scheme = '';
+      var match = String(url).match(/^([a-z][a-z0-9+.-]*):/i);
+      scheme = match ? match[1].toLowerCase()+':' : '';
+      if (scheme && ['http:','https:','mailto:'].indexOf(scheme) < 0) return full;
+      var safeUrl = url.replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/[\r\n]/g,'');
+      return '<a href="'+safeUrl+'" target="_blank" rel="noopener noreferrer">'+label+'</a>';
+    });
+    return s;
+  }
+  // Display renderer: markdown + leaves math for MathJax. Stores raw source in
+  // data-tex so a typeset <mjx-container> never corrupts what gets saved.
+  function writeProse(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var lines = para.split('\n');
+      var ordered = lines.map(function(ln){ return ln.match(/^\s*\d+[.)]\s+(.+?)\s*$/); });
+      var unordered = lines.map(function(ln){ return ln.match(/^\s*[-*+]\s+(.+?)\s*$/); });
+      if (lines.length && ordered.every(function(m){ return m; })) {
+        var ol = document.createElement('ol'); ol.className = 'markdown-list';
+        ordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ol.appendChild(li); });
+        el.appendChild(ol); return;
+      }
+      if (lines.length && unordered.every(function(m){ return m; })) {
+        var ul = document.createElement('ul'); ul.className = 'markdown-list';
+        unordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ul.appendChild(li); });
+        el.appendChild(ul); return;
+      }
+      var p = document.createElement('p');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        var span = document.createElement('span');
+        span.innerHTML = mdInline(ln);
+        while (span.firstChild) p.appendChild(span.firstChild);
+      });
+      el.appendChild(p);
+    });
+    // leave el empty when there is no content so the CSS placeholder shows
+  }
+  // Edit renderer: raw source (markdown + LaTeX) as plain, editable text.
+  function showSource(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var p = document.createElement('p');
+      var lines = para.split('\n');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        p.appendChild(document.createTextNode(ln));
+      });
+      el.appendChild(p);
+    });
+  }
+  function readProse(el){
+    if (!el) return '';
+    // Prefer the preserved raw source (accurate even after MathJax typeset).
+    if (el.dataset.tex != null) {
+      return el.dataset.tex.replace(/\s+$/,'').trim();
+    }
+    var ps = el.querySelectorAll(':scope > p');
+    if (ps.length){
+      return Array.prototype.map.call(ps, function(p){
+        return p.innerText.replace(/\u00a0/g,' ').replace(/\s+$/,'').trim();
+      }).filter(function(t){ return t.length; }).join('\n\n');
+    }
+    return el.innerText.trim();
+  }
+
+  // ── path helpers ──
+  function getByPath(o, p){ return p.split(".").reduce(function(o,k){return o==null?o:o[k];},o); }
+  function setByPath(o, p, v){ var pts=p.split("."); var cur=o;
+    for(var i=0;i<pts.length-1;i++){var k=pts[i],nx=pts[i+1]; if(cur[k]==null)cur[k]=/^\d+$/.test(nx)?[]:{}; cur=cur[k];}
+    cur[pts[pts.length-1]]=v; }
+  function isListField(f){ return Array.isArray(getByPath(INITIAL,f)); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function topOf(el){ return el.getBoundingClientRect().top + window.scrollY; }
+
+  function collectEdits(statusOverride){
+    var edits = {};
+    var fieldTimes = clone(INITIAL._field_updated_at || {});
+    var nowStamp = new Date().toISOString();
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f = el.dataset.field;
+      if (f.indexOf('key_quotes.')===0) return;
+      var nextValue;
+      if (isListField(f)) {
+        var items=[]; el.querySelectorAll('li').forEach(function(li){ var t=li.innerText.trim(); if(t)items.push(t); });
+        nextValue=items; setByPath(edits,f,items);
+      } else if (isProseField(f)) {
+        nextValue=readProse(el); setByPath(edits,f,nextValue);
+      } else { nextValue=el.innerText.trim(); setByPath(edits,f,nextValue); }
+      if(JSON.stringify(getByPath(INITIAL,f))!==JSON.stringify(nextValue)) fieldTimes[f]=nowStamp;
+    });
+    var quotes=[];
+    document.querySelectorAll('.quote-block').forEach(function(b){
+      var tEl=b.querySelector('.quote-text'), nEl=b.querySelector('.quote-note'), m=b.querySelector('.quote-meta');
+      var qt = (tEl && tEl.dataset.tex != null) ? tEl.dataset.tex.trim() : (tEl ? tEl.innerText.trim() : "");
+      var qn = (nEl && nEl.dataset.tex != null) ? nEl.dataset.tex.trim() : (nEl ? nEl.innerText.trim() : "");
+      quotes.push({text:qt,note:qn,page:m?m.dataset.page:"",color:m?m.dataset.color:""});
+    });
+    if (quotes.length || (INITIAL.key_quotes&&INITIAL.key_quotes.length)) edits.key_quotes=quotes;
+    if(JSON.stringify(INITIAL.key_quotes||[])!==JSON.stringify(quotes)) fieldTimes.key_quotes=nowStamp;
+    var secArr = collectSections();
+    if (secArr.length || (INITIAL.sections&&INITIAL.sections.length)) edits.sections = secArr;
+    if(JSON.stringify(INITIAL.sections||[])!==JSON.stringify(secArr)) fieldTimes.sections=nowStamp;
+    Object.keys(INITIAL).forEach(function(k){ if(!(k in edits)) edits[k]=INITIAL[k]; });
+    edits.module_notes = collectModuleNotes();   // per-module marginalia
+    edits.status = statusOverride || currentStatus;
+    edits._field_updated_at = fieldTimes;
+    edits.exported_at = new Date().toISOString();
+    edits.zotero_key = ZKEY;
+    edits.schema_version = INITIAL.schema_version || 3;
+    return edits;
+  }
+
+  var saveDot = document.getElementById('saveDot');
+  function markDirty(){ saveDot.className='save-dot is-dirty'; }
+  function markSaved(){ saveDot.className='save-dot is-saved'; setTimeout(function(){saveDot.className='save-dot';},1200); }
+  function markSynced(){ saveDot.className='save-dot is-synced'; }
+
+  // ── localStorage save ──
+  function saveToLS(statusOverride){
+    var edits = collectEdits(statusOverride);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(edits)); } catch(e){}
+    return edits;
+  }
+  function saveEdits(){
+    var edits = saveToLS();
+    if (dirHandle) { writeToFile(edits); } else { markSaved(); }
+  }
+  var saveTimer=null;
+  document.addEventListener('input', function(e){
+    var t=e.target;
+    if (t && t.classList && t.classList.contains('note-area')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800); updateNotesCount(); return;
+    }
+    if (t && t.hasAttribute && t.hasAttribute('contenteditable')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800);
+    }
+  });
+  document.addEventListener('keydown', function(e){ if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveEdits();} });
+
+  // ── File System Access API: sync to folder ──
+  var dirHandle = null;
+  var IDB_NAME = 'litreader-fs', IDB_STORE = 'handles';
+
+  function idbGet(key){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) { resolve(null); return; }
+          var tx = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(key);
+          tx.onsuccess = function(){ resolve(tx.result||null); };
+          tx.onerror = function(){ resolve(null); };
+        };
+        r.onerror = function(){ resolve(null); };
+      } catch(e){ resolve(null); }
+    });
+  }
+  function idbSet(key, val){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result; var tx = db.transaction(IDB_STORE,'readwrite');
+          tx.objectStore(IDB_STORE).put(val, key); tx.oncomplete=function(){resolve(true);}; tx.onerror=function(){resolve(false);};
+        };
+      } catch(e){ resolve(false); }
+    });
+  }
+  function isFsApi(){ return 'showDirectoryPicker' in window; }
+
+  async function writeToFile(edits){
+    if (!dirHandle) return;
+    try {
+      var target = dirHandle;
+      try { target = await dirHandle.getDirectoryHandle('papers', {create:false}); } catch(e){ target = dirHandle; }
+      var fh = await target.getFileHandle(ZKEY + '.edits.json', {create:true});
+      var w = await fh.createWritable();
+      await w.write(JSON.stringify(edits, null, 2));
+      await w.close();
+      markSynced();
+    } catch(err) {
+      toast('写文件失败：'+err.message);
+      markSaved();
+    }
+  }
+
+  async function connectFolder(){
+    if (!isFsApi()) { toast('当前浏览器不支持 File System Access API；请用 Export JSON 手动导出'); return; }
+    try {
+      var dh = await window.showDirectoryPicker({mode:'readwrite'});
+      dirHandle = dh;
+      await idbSet(LS_DIR, dh);
+      var btn = document.getElementById('btnSync');
+      btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+      markSynced();
+      saveEdits();
+      toast('已连接文件夹，编辑与状态将自动写入 ' + ZKEY + '.edits.json');
+    } catch(err) { /* user cancelled */ }
+  }
+  document.getElementById('btnSync').addEventListener('click', connectFolder);
+
+  (async function(){
+    if (!isFsApi()) return;
+    var stored = await idbGet(LS_DIR);
+    if (stored) {
+      var perm = await stored.queryPermission({mode:'readwrite'});
+      if (perm === 'granted') {
+        dirHandle = stored;
+        var btn = document.getElementById('btnSync');
+        btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+        markSynced();
+      } else if (perm === 'prompt') {
+        var btn2 = document.getElementById('btnSync');
+        btn2.textContent = 'Reconnect Folder';
+      }
+    }
+  })();
+
+  // ── load + apply ──
+  function collectSections(){
+    var arr=[];
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      arr.push({
+        heading: card.dataset.heading||"",
+        page: card.dataset.page||"",
+        level: card.classList.contains('lvl3')?3:2,
+        synthetic: card.dataset.synthetic?true:false,
+        summary: sumEl?readProse(sumEl):"",
+        analysis: anaEl?readProse(anaEl):""
+      });
+    });
+    return arr;
+  }
+  function applySectionsToDom(secArr){
+    if (!secArr || !secArr.length) return;
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var idx=parseInt(card.dataset.index,10);
+      var s=secArr[idx];
+      if(!s) return;
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      if(sumEl && s.summary!=null) writeProse(sumEl, s.summary);
+      if(anaEl && s.analysis!=null) writeProse(anaEl, s.analysis);
+    });
+  }
+  function collectModuleNotes(){
+    var obj = {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = ta.value.trim();
+      if (v) obj[ta.dataset.module] = v;
+    });
+    return obj;
+  }
+  function applyModuleNotes(edits){
+    var mn = edits.module_notes || {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = mn[ta.dataset.module];
+      if (v != null) ta.value = v;
+    });
+  }
+  function applyEditsToDom(edits){
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f=el.dataset.field;
+      if (f.indexOf('key_quotes.')===0){
+        var m=f.match(/^key_quotes\.(\d+)\.(text|note)$/);
+        if(m){ var q=(edits.key_quotes||[])[parseInt(m[1],10)]; if(q) writeProse(el, q[m[2]]||""); }
+        return;
+      }
+      if (isListField(f)) {
+        var arr=getByPath(edits,f)||[]; el.innerHTML=''; arr.forEach(function(it){var li=document.createElement('li'); li.innerHTML=mdInline(it); el.appendChild(li);});
+      } else if (isProseField(f)) {
+        var vp=getByPath(edits,f); if(vp!=null) writeProse(el, vp);
+      } else { var v=getByPath(edits,f); if(v!=null) el.innerText=v; }
+    });
+    applySectionsToDom(edits.sections);
+    applyModuleNotes(edits);
+  }
+
+  // ── export / import ──
+  function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('is-visible'); setTimeout(function(){t.classList.remove('is-visible');},2400); }
+  document.getElementById('btnExport').addEventListener('click', function(){
+    saveToLS(); var edits=collectEdits();
+    var blob=new Blob([JSON.stringify(edits,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob); var a=document.createElement('a');
+    a.href=url; a.download=ZKEY+'.edits.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url); toast('已导出 '+ZKEY+'.edits.json');
+  });
+  var importInput=document.getElementById('importInput');
+  document.getElementById('btnImport').addEventListener('click', function(){ importInput.click(); });
+  importInput.addEventListener('change', function(e){
+    var file=e.target.files[0]; if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try { var edits=JSON.parse(ev.target.result); localStorage.setItem(LS_KEY,JSON.stringify(edits));
+        if (edits.status) setStatus(edits.status, false);
+        applyEditsToDom(edits); updateNotesCount(); toast('已导入编辑'); markSaved();
+        if (dirHandle) writeToFile(edits);
+      } catch(err){ toast('导入失败：'+err.message); }
+    };
+    reader.readAsText(file); importInput.value='';
+  });
+
+  // ── status ──
+  var currentStatus = "reading" || "reading";
+  function setStatus(s, persist){
+    currentStatus = s;
+    document.querySelectorAll('.status-btn').forEach(function(b){ b.classList.toggle('is-active', b.dataset.status===s); });
+    if (persist) {
+      var edits = saveToLS(s);
+      if (dirHandle) writeToFile(edits);
+      toast('Status → '+s+'；已写入 '+ZKEY+'.edits.json');
+    }
+  }
+  document.querySelectorAll('.status-btn').forEach(function(b){
+    b.addEventListener('click', function(){ setStatus(b.dataset.status, true); });
+  });
+  var storedEdits = null;
+  try { storedEdits = localStorage.getItem(LS_KEY) ? JSON.parse(localStorage.getItem(LS_KEY)) : null; } catch(e){}
+  var savedStatus = (storedEdits && storedEdits.status) || "reading" || "reading";
+  try { var ls = localStorage.getItem(LS_STATUS); if (ls) savedStatus = ls; } catch(e){}
+  currentStatus = savedStatus;
+  setStatus(currentStatus, false);
+
+  // ── accent theme switcher ──
+  var accentDots = document.querySelectorAll('.accent-dot');
+  function setAccent(a, persist){
+    document.body.setAttribute('data-accent', a);
+    accentDots.forEach(function(d){ d.classList.toggle('is-active', d.dataset.accent === a); });
+    if (persist) { try { localStorage.setItem(LS_ACCENT, a); } catch(e){} }
+  }
+  var savedAccent = "blue";
+  try { var sa = localStorage.getItem(LS_ACCENT); if (sa) savedAccent = sa; } catch(e){}
+  setAccent(savedAccent, false);
+  accentDots.forEach(function(d){
+    d.addEventListener('click', function(){ setAccent(d.dataset.accent, true); });
+  });
+
+  // ── progress rail ──
+  function onProgress(){
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var p = h > 0 ? (window.scrollY / h) * 100 : 0;
+    var rail = document.getElementById('progressRail');
+    if (rail) rail.style.width = p + '%';
+  }
+  window.addEventListener('scroll', onProgress, {passive:true});
+  window.addEventListener('resize', onProgress, {passive:true});
+
+  // ── left TOC + scroll-spy (shared with notes) ──
+  function buildNav(){
+    var toc = document.getElementById('toc');
+    if (!toc) return;
+    var list = document.createElement('div'); list.className='toc-list';
+    var modules = Array.prototype.slice.call(document.querySelectorAll('.module'));
+    if (!modules.length) { toc.style.display='none'; return; }
+
+    var mainLinks = [], subLinks = [], noteCards = [], navTargets = [];
+    modules.forEach(function(mod){
+      var id = mod.id;
+      var h2 = mod.querySelector('.sec-h');
+      var idx = h2.querySelector('.sec-index') ? h2.querySelector('.sec-index').textContent : '';
+      var name = h2.querySelector('.sec-name') ? h2.querySelector('.sec-name').textContent : h2.textContent;
+      var a = document.createElement('a');
+      a.className='toc-link'; a.href='#'+id; a.dataset.module=id;
+      a.innerHTML = '<span class="toc-num">'+idx+'</span><span class="toc-label">'+name+'</span>';
+      list.appendChild(a);
+      mainLinks.push(a);
+      navTargets.push({id:id, el:mod, type:'main'});
+      // sub-modules (only meaningful under 09, but generic)
+      mod.querySelectorAll('.submod > h3').forEach(function(h3){
+        if (!h3.id) h3.id = id + '-' + h3.textContent.replace(/\s+/g,'-');
+        var sa = document.createElement('a');
+        sa.className='toc-sublink'; sa.href='#'+h3.id; sa.dataset.sub=h3.id;
+        sa.innerHTML = '<span class="toc-subnum">·</span><span class="toc-sublabel">'+h3.textContent+'</span>';
+        list.appendChild(sa);
+        subLinks.push(sa);
+        navTargets.push({id:h3.id, el:h3, type:'sub'});
+      });
+    });
+    toc.appendChild(list);
+
+    noteCards = Array.prototype.slice.call(document.querySelectorAll('.note-card'));
+
+    navTargets.sort(function(a,b){ return topOf(a.el) - topOf(b.el); });
+    var linkMap = {}; mainLinks.forEach(function(l){ linkMap[l.dataset.module]=l; });
+    var subMap = {}; subLinks.forEach(function(l){ subMap[l.dataset.sub]=l; });
+
+    function onScroll(){
+      var pos = window.scrollY + 130;
+      var active = navTargets[0];
+      navTargets.forEach(function(t){ if (topOf(t.el) <= pos) active = t; });
+      mainLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      subLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      noteCards.forEach(function(n){ n.classList.remove('is-active'); });
+      if (active) {
+        if (active.type === 'main') {
+          var lk = linkMap[active.id]; if (lk) lk.classList.add('is-active');
+        } else {
+          var sl = subMap[active.id]; if (sl) sl.classList.add('is-active');
+          var pm = active.el.closest('.module');
+          if (pm) { var lk2 = linkMap[pm.id]; if (lk2) lk2.classList.add('is-active'); }
+        }
+        var modEl = active.type === 'main' ? active.el : active.el.closest('.module');
+        noteCards.forEach(function(n){ n.classList.toggle('is-active', n.dataset.module === modEl.id); });
+      }
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+    window.addEventListener('resize', onScroll, {passive:true});
+    onScroll();
+  }
+
+  // ── note jump + section → note focus ──
+  function wireNotes(){
+    document.querySelectorAll('.note-jump').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var el = document.getElementById(btn.dataset.target);
+        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+      });
+    });
+    document.querySelectorAll('.sec-h').forEach(function(h2){
+      h2.addEventListener('click', function(){
+        var mod = h2.closest('.module'); if (!mod) return;
+        var card = document.querySelector('.note-card[data-module="'+mod.id+'"]');
+        if (card) card.scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
+  }
+
+  function updateNotesCount(){
+    var n = 0;
+    document.querySelectorAll('.note-area').forEach(function(ta){ if (ta.value.trim()) n++; });
+    var el = document.getElementById('notesCount');
+    if (el) el.textContent = n;
+  }
+
+  // ── math typeset (MathJax) ──
+  // Typeset the whole document. Called on init (guarded) and again by the
+  // MathJax startup promise once the library is ready.
+  function litTypeset(){
+    if (window.MathJax && MathJax.typesetPromise) {
+      try { MathJax.typesetPromise().catch(function(){}); } catch(e){}
+    }
+  }
+  window.litTypeset = litTypeset;
+
+  // Editable fields (summaries, quotes) must stay plaintext while the user is
+  // typing, but render math on blur. We keep the raw source in data-tex so the
+  // typeset <mjx-container> never corrupts what gets saved.
+  // Every editable field (the 8 prose modules, section summaries/analyses, and
+  // quote blocks) shares one round-trip: focus shows the raw markdown+LaTeX
+  // source so it's editable; blur re-renders markdown and re-typesets math.
+  // The raw source is always preserved in data-tex, so what gets saved to
+  // localStorage / edits.json is never the rendered <strong>/<mjx-container>.
+  function wireEditable(){
+    document.querySelectorAll('[data-field].editable, .quote-text, .quote-note, .sec-summary, .sec-analysis')
+      .forEach(function(el){
+        el.addEventListener('focus', function(){
+          if (el.dataset.tex != null) showSource(el, el.dataset.tex);
+        });
+        el.addEventListener('input', function(){
+          if (el.dataset.tex != null) el.dataset.tex = el.innerText;
+        });
+        el.addEventListener('blur', function(){
+          if (el.dataset.tex != null) writeProse(el, el.dataset.tex);
+          if (window.MathJax && MathJax.typesetPromise) {
+            try { MathJax.typesetPromise([el]).catch(function(){}); } catch(e){}
+          }
+        });
+      });
+  }
+
+  // ── lightbox for figures ──
+  function wireLightbox(){
+    var overlay = document.getElementById('lbOverlay');
+    var img = document.getElementById('lbImg');
+    var cap = document.getElementById('lbCaption');
+    var closeBtn = document.getElementById('lbClose');
+    if (!overlay || !img) return;
+    function open(src, caption){
+      img.src = src; cap.textContent = caption || '';
+      overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden','false');
+    }
+    function close(){
+      overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden','true');
+      img.src = '';
+    }
+    document.querySelectorAll('.figure-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var im = card.querySelector('img'); if (!im) return;
+        var meta = card.querySelector('.figure-meta');
+        var caption = meta ? meta.innerText.replace(/\s+/g,' ').trim() : '';
+        open(im.getAttribute('src'), caption);
+      });
+    });
+    overlay.addEventListener('click', function(e){
+      if (e.target === overlay || e.target === closeBtn) close();
+    });
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && overlay.classList.contains('is-open')) close();
+    });
+  }
+
+  // ── init ──
+  // A rebuild bumps INITIAL.built_at. A stale localStorage snapshot from an
+  // older build (or a pre-fix broken sync) is discarded in favour of the
+  // freshly-built embedded data, so fixes always take effect on reload.
+  // A same-build localStorage copy (the user's own unsynced edits) is kept.
+  var stored = null;
+  try { stored = localStorage.getItem(LS_KEY); } catch(e){}
+  var storedObj = null;
+  try { storedObj = stored ? JSON.parse(stored) : null; } catch(e){ storedObj = null; }
+  var embeddedBuiltAt = (INITIAL && INITIAL.built_at) || null;
+  var storedBuiltAt = (storedObj && storedObj.built_at) || null;
+  if (storedObj && embeddedBuiltAt && storedBuiltAt && storedBuiltAt === embeddedBuiltAt) {
+    applyEditsToDom(storedObj);
+  } else {
+    applyEditsToDom(INITIAL);
+  }
+  buildNav();
+  wireNotes();
+  wireEditable();
+  wireLightbox();
+  updateNotesCount();
+  onProgress();
+  litTypeset();   // no-op until MathJax is ready; startup promise re-runs it
+})();
+</script>
+
+</body>
+</html>
