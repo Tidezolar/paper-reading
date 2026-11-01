@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>工作智能体的可验证数据合成与后训练</title>
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <style>
+    :root{--ink:#423f3d;--soft:#716b67;--faint:#968e88;--rule:#ded9d4;--tint:#f6f2ef;--accent:#6ba6d4;--font:Inter,"Noto Sans SC",sans-serif}
+    [data-accent="rose"]{--accent:#ed7e7d;--tint:#fff3f2}[data-accent="green"]{--accent:#6fbf92;--tint:#f1faf4}
+    *{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font:15px/1.75 var(--font)}
+    main{width:min(760px,calc(100% - 40px));margin:0 auto;padding:34px 0 72px}
+    nav{margin-bottom:48px;font-size:13px}a{color:var(--soft);text-decoration:none;border-bottom:1px solid var(--rule)}a:hover{color:var(--accent);border-color:var(--accent)}
+    header{border-bottom:1px solid var(--rule);padding-bottom:24px;margin-bottom:38px}h1{font-size:34px;line-height:1.2;margin:0 0 14px}h2{font-size:19px;margin:34px 0 10px}
+    .status{display:inline-block;padding:3px 9px;background:var(--tint);color:var(--soft);font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+    .keywords{display:flex;flex-wrap:wrap;gap:7px}.keyword{border:1px solid var(--rule);padding:3px 9px;color:var(--soft);font-size:12px}
+    .empty{color:var(--faint)}
+  </style>
+</head>
+<body data-accent="blue">
+<main>
+  <nav><a href="../dashboard.html">← Dashboard</a></nav>
+  <header><h1>工作智能体的可验证数据合成与后训练</h1><span class="status">active</span></header>
+  <section><h2>研究问题</h2><div>如何将真实工作文件转化为可执行、可核验的训练任务，并通过可靠的轨迹筛选改善工作智能体的跨任务泛化？</div></section>
+  <section><h2>背景与动机</h2><div>按用户授权为本次精读设定的初步研究领域；关注多文件工作、成果交付与训练数据质量。尚未指定具体应用行业和实验资源。</div></section>
+  <section><h2>方法或设计</h2><div>围绕证据来源、任务规格、评分器可靠性和SFT/RFT整理文献；优先考虑固定候选池与预算的模块消融、人工校准和错误扰动审计。此为研究设想。</div></section>
+  <section><h2>数据或材料</h2><div>以GraphForge论文为起点，关注公开工作文件、合成任务、教师轨迹、自采样轨迹和工作任务基准；尚未建立自有数据集。</div></section>
+  <section><h2>当前难点</h2><div>区分文件真实、来源可追溯与内容验证正确；控制评分器共偏差、选择偏差和长上下文训练成本；明确跨职业与跨模型泛化边界。</div></section>
+  <section><h2>关键词</h2><div class="keywords"><span class="keyword">工作智能体</span><span class="keyword">数据合成</span><span class="keyword">证据锚定</span><span class="keyword">自动验证</span><span class="keyword">SFT</span><span class="keyword">RFT</span></div></section>
+</main>
+</body>
+</html>

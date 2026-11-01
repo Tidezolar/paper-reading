@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Scaling Agentic Data for Long-Horizon Terminal Intelligence — Close Reading</title>
+<script>
+  (function(){
+    var v = '2026-07-14-v5';
+    if (location.search.indexOf('nocache=' + v) === -1) {
+      var url = location.origin + location.pathname + '?nocache=' + v + location.hash;
+      location.replace(url);
+    }
+  })();
+</script>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+  :root {
+    --accent-light: #F5B7AB;
+    --accent-mid:   #ED7E7D;
+    --accent-deep:  #C73B41;
+    --accent-tint:  #FDF6F4;
+    --accent-mid-rgb: 237,126,125;
+    --ink:        #423F3D;
+    --ink-soft:   #6E655E;
+    --ink-faint:  #7E756D;
+    --rule:       #EEE8E4;
+    --rule-lit:   #F5F0EC;
+    --border:     #E4DDD7;
+    --bg:         #FFFFFF;
+    --bg-soft:    #FAFAF8;
+    --bg-info:    #FDFCFB;
+
+    --font-body: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-display: "Spectral", Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+    --w-toc: 200px;
+    --w-notes: 250px;
+    --w-main: minmax(500px, 720px);
+    --gx: clamp(40px, 5vw, 72px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg); color: var(--ink);
+    line-height: 1.72; font-weight: 400;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .progress-rail {
+    position: fixed; top: 0; left: 0; right: 0; height: 1px;
+    background: var(--rule-lit); z-index: 120;
+  }
+  .progress-rail::after {
+    content: ""; display: block; height: 100%; width: 0%;
+    background: var(--accent-mid); transition: width .12s linear;
+  }
+
+  /* ── topbar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px clamp(28px, 4vw, 48px);
+    margin: 0 auto; flex-wrap: wrap; gap: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .tb-left {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  .tb-left .tb-key { color: var(--ink-soft); font-family: var(--font-mono); letter-spacing: .04em; }
+  .tb-right { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .tb-group { display: inline-flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+  .tb-sep { width: 1px; height: 18px; background: var(--rule); flex-shrink: 0; }
+  .tb-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); text-decoration: none; font-weight: 500;
+    padding: 5px 0; cursor: pointer; background: none; border: none;
+    font-family: var(--font-body);
+    border-bottom: 1px solid transparent; transition: color .2s, border-color .2s;
+  }
+  .tb-link:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .tb-link.is-connected { color: #8FB98A; border-bottom-color: #8FB98A; }
+  .tb-back { padding: 5px 0; }
+  .tb-back:hover { color: var(--accent-mid); border-bottom-color: transparent; }
+
+  .status-group { display: inline-flex; gap: 4px; align-items: center; }
+  .status-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 4px;
+  }
+  .status-btn {
+    font-size: 11px; letter-spacing: .04em; font-weight: 600;
+    color: var(--ink-faint); background: none;
+    border: 1px solid var(--rule); cursor: pointer;
+    padding: 3px 9px; font-family: var(--font-body); transition: all .18s;
+  }
+  .status-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+  .status-btn.is-active { color: var(--accent-deep); border-color: var(--accent-deep); background: var(--accent-tint); }
+
+  /* ── accent theme switcher ── */
+  .accent-group { display: inline-flex; gap: 6px; align-items: center; }
+  .accent-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 2px;
+  }
+  .accent-dot {
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--rule); padding: 0; background: none;
+    transition: transform .15s, box-shadow .15s; position: relative;
+  }
+  .accent-dot::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--dot);
+  }
+  .accent-dot[data-accent="rose"]  { --dot: #ED7E7D; }
+  .accent-dot[data-accent="green"] { --dot: #6FBF92; }
+  .accent-dot[data-accent="blue"]  { --dot: #6BA6D4; }
+  .accent-dot:hover { transform: scale(1.12); }
+  .accent-dot.is-active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--dot); }
+
+  /* ── three-column reader grid ── */
+  .reader {
+    display: grid;
+    grid-template-columns: var(--w-toc) minmax(500px, 1fr) var(--w-notes);
+    column-gap: var(--gx);
+    justify-content: space-between;
+    margin: 0 auto; padding: 0 clamp(28px, 4vw, 48px);
+    align-items: start;
+  }
+  .toc {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-toc);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-right: 4px;
+    font-size: 13px;
+  }
+  .notes {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-notes);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-left: 4px;
+    font-size: 13px;
+  }
+  .page { min-width: 0; padding-bottom: 96px; }
+
+  /* ── paper header ── */
+  .head {
+    padding: 48px 0 36px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .head-overline {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent-deep); font-weight: 600; margin-bottom: 18px;
+  }
+  .head-title {
+    font-size: clamp(28px, 4.6vw, 42px);
+    font-family: var(--font-display);
+    font-weight: 600; line-height: 1.16; letter-spacing: -.01em;
+    color: var(--ink); margin-bottom: 14px;
+  }
+  .head-sub {
+    font-size: 16px; line-height: 1.6; color: var(--ink-soft);
+    font-weight: 400; width: 100%; max-width: none;
+  }
+  .head-meta {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 26px; font-size: 13px; color: var(--ink-faint);
+  }
+  .head-meta > div { display: flex; align-items: center; gap: 8px; }
+  .hm-dot { width: 6px; height: 6px; background: var(--accent-mid); border-radius: 50%; flex-shrink: 0; }
+  .hm-val { color: var(--ink); font-weight: 500; }
+  .hm-val a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .hm-val a:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .hm-val .hm-time { font-family: var(--font-mono); }
+
+  .head-status { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+  .keywords-row { margin-top: 8px; }
+  .keywords-value { font-size: 13px; color: var(--ink-soft); }
+  .hs-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  /* ── module + headings (simplified) ── */
+  .module { scroll-margin-top: 96px; }
+  .sec-h {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 58px 0 16px; scroll-margin-top: 96px; cursor: pointer;
+    position: relative;
+  }
+  .sec-index {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 34px; height: 30px; padding: 0 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; letter-spacing: .02em;
+  }
+  .sec-name {
+    font-size: 23px; font-weight: 600; color: var(--ink);
+    font-family: var(--font-display);
+    letter-spacing: -.01em; line-height: 1.22;
+  }
+  .sec-hint {
+    margin-left: auto; align-self: center;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); opacity: 0; transition: opacity .2s;
+  }
+  .sec-h:hover .sec-hint { opacity: 1; }
+
+  .field-text {
+    font-size: 16px; line-height: 1.82; color: var(--ink);
+    padding: 4px 8px; margin: 0 -8px 4px; min-height: 1.6em;
+  }
+
+  /* Natural paragraph breaks inside prose fields (multi-<p>). */
+  .field-text p { margin: 0 0 0.92em; }
+  .field-text p:last-child { margin-bottom: 0; }
+  .sec-summary p { margin: 0 0 0.75em; }
+  .sec-summary p:last-child { margin-bottom: 0; }
+  .sec-analysis p { margin: 0 0 0.7em; }
+  .sec-analysis p:last-child { margin-bottom: 0; }
+
+  .block-lede {
+    max-width: 680px; margin: -2px 0 24px; color: var(--ink-soft);
+    font-size: 14px; line-height: 1.75;
+  }
+  .relevance-grid { margin: 0; }
+  .relevance-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .relevance-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .relevance-item h3 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .relevance-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .relevance-item .field-text { padding: 0; margin: 0; font-size: 15px; line-height: 1.75; }
+
+  /* Overview follows the same light, dot-led rhythm as the close-reading submodules. */
+  .overview-grid { margin: 0; }
+  .overview-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .overview-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .overview-item h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .overview-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .overview-item .field-text { padding: 0; margin: 0; font-size: 16px; line-height: 1.82; }
+  .overview-conclusion { background: transparent; }
+  .overview-conclusion .field-text + .field-text { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--accent-light); }
+  .relevance-wide { grid-column: 1 / -1; }
+  .relevance-item > .editable-list { margin: 0; }
+
+  @media (max-width: 760px) { .relevance-wide { grid-column: auto; } }
+
+  .editable, [contenteditable] {
+    outline: none; transition: background .15s, box-shadow .15s; border-radius: 1px;
+  }
+  .editable:focus, [contenteditable]:focus {
+    background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent-mid);
+  }
+  .editable:empty::before, [contenteditable]:empty::before {
+    content: attr(data-placeholder); color: var(--ink-faint); font-style: italic;
+  }
+
+  .body ol, .body ul {
+    margin: 12px 0 24px; padding: 0; list-style: none; counter-reset: ls;
+  }
+  .body ol li {
+    position: relative; padding: 7px 0 7px 40px;
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); counter-increment: ls;
+  }
+  .body ol li::before {
+    content: counter(ls); position: absolute; left: 0; top: 8px;
+    font-size: 13px; font-weight: 600; color: var(--accent-deep); width: 28px; text-align: right;
+  }
+  .editable-list li { padding-left: 40px; }
+
+  .key-concept {
+    margin: 18px 0 8px; padding: 22px 26px;
+    background: var(--bg); border: 1px solid var(--accent-light); position: relative;
+  }
+  .key-concept .kc-label {
+    position: absolute; top: -9px; left: 20px;
+    font-size: 10px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    background: var(--bg); padding: 2px 10px;
+  }
+
+  /* ── sub-modules inside 09 ── */
+  .submod { margin: 32px 0; }
+  .abstract-first { margin: 28px 0 0; }
+  .submod > h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 12px; scroll-margin-top: 96px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .submod > h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+
+  .quote-block {
+    margin: 22px 0; padding: 20px 24px;
+    background: var(--bg); border: 1px solid var(--rule);
+    position: relative;
+  }
+  .quote-block .qb-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .quote-block .qb-swatch {
+    width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--rule);
+  }
+  .quote-text {
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); font-style: italic;
+    padding: 4px 8px; margin: 0 -8px 8px; min-height: 1.5em;
+  }
+  .quote-note {
+    font-size: 13.5px; line-height: 1.6; color: var(--ink-soft);
+    padding: 4px 8px; margin: 0 -8px; min-height: 1.4em;
+    border-top: 1px dashed var(--rule-lit); padding-top: 10px;
+  }
+
+  /* ── figures ── */
+  .figures-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px; margin-top: 8px;
+  }
+  .figure-card {
+    border: 1px solid var(--rule); background: var(--bg); padding: 10px;
+    transition: border-color .18s;
+  }
+  .figure-card:hover { border-color: var(--accent-light); }
+  .figure-card img { width: 100%; height: auto; display: block; background: var(--bg-soft); }
+  .figure-meta {
+    margin-top: 8px; font-size: 11px; color: var(--ink-faint);
+    font-family: var(--font-mono); letter-spacing: .02em;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ── section-by-section module ── */
+  .sections-list { margin-top: 8px; display: flex; flex-direction: column; gap: 16px; }
+  .sec-card {
+    border: 1px solid var(--rule); background: var(--bg);
+    padding: 18px 22px; position: relative; scroll-margin-top: 96px;
+  }
+  .sec-card.lvl3 {
+    margin-left: 24px; background: var(--bg-soft);
+  }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 11px;
+    min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .lvl3 .sec-num { color: var(--ink-soft); border-color: var(--border); background: var(--bg); }
+  .sec-head h3 {
+    font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3;
+    letter-spacing: -.01em; margin: 0; flex: 1;
+  }
+  .sec-synthetic {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    color: var(--ink-faint); border: 1px solid var(--rule);
+    padding: 1px 6px; border-radius: 2px; margin-left: 6px; vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .sec-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .sec-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin: 10px 0 4px;
+  }
+  .sec-label-analysis { color: var(--ink-soft); }
+  .sec-summary { font-size: 15px; line-height: 1.78; }
+  .sec-analysis {
+    font-size: 14.5px; line-height: 1.74; color: var(--ink-soft);
+    background: var(--bg); padding: 10px 12px; border-left: 1px solid var(--rule-lit);
+  }
+
+  .info-box {
+    margin: 8px 0; padding: 20px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+    font-size: 14.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .info-box .info-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 14px; display: block;
+  }
+  .hl-group { margin-bottom: 16px; }
+  .hl-group:last-child { margin-bottom: 0; }
+  .hl-group-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: .10em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px;
+  }
+  .hl-swatch { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--rule); }
+  .hl-item {
+    font-size: 14px; line-height: 1.65; color: var(--ink);
+    padding: 6px 0 6px 14px; border-left: 1px solid var(--rule); margin-bottom: 6px;
+  }
+  .hl-item.is-comment { background: var(--accent-tint); border-left-color: var(--accent-mid); }
+  .hl-item .hl-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .hl-item .hl-comment { color: var(--accent-deep); font-size: 13px; display: block; margin-top: 2px; }
+
+  details.abstract-box {
+    margin: 8px 0 0; padding: 16px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+  }
+  details.abstract-box summary {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); cursor: pointer; list-style: none;
+  }
+  details.abstract-box summary::-webkit-details-marker { display: none; }
+  details.abstract-box summary::before { content: "+ "; }
+  details.abstract-box[open] summary::before { content: "− "; }
+  .abstract-text { margin-top: 12px; font-size: 14.5px; line-height: 1.7; color: var(--ink-soft); }
+
+  /* ── left TOC ── */
+  .toc-title {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    margin-bottom: 14px; padding-left: 12px;
+  }
+  .toc-list { display: flex; flex-direction: column; }
+  .toc-link, .toc-sublink {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 0 5px 12px; text-decoration: none; color: var(--ink-soft);
+    border-left: 1px solid transparent; line-height: 1.35;
+    transition: color .18s, border-color .18s, background .18s;
+  }
+  .toc-link:hover, .toc-sublink:hover { color: var(--ink); border-left-color: var(--accent-light); }
+  .toc-link.is-active, .toc-sublink.is-active {
+    color: var(--accent-deep); border-left-color: var(--accent-mid);
+    font-weight: 500; background: var(--accent-tint);
+  }
+  .toc-num {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    min-width: 20px; flex-shrink: 0;
+  }
+  .toc-label { flex: 1; }
+  .toc-sublink { padding-left: 30px; font-size: 12.5px; color: var(--ink-faint); }
+  .toc-subnum {
+    font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+    min-width: 24px; flex-shrink: 0;
+  }
+
+  /* ── right notes column ── */
+  .notes-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 12px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
+  }
+  .notes-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+  }
+  .notes-count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .notes-list { display: flex; flex-direction: column; gap: 16px; padding-top: 6px; }
+  .note-card {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .note-card:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 4px 20px rgba(var(--accent-mid-rgb),.08);
+  }
+  .note-card.is-active {
+    background: var(--bg);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 1px var(--accent-mid), 0 8px 28px rgba(var(--accent-mid-rgb),.12);
+    transform: translateY(-1px);
+  }
+  .note-jump {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: none; cursor: pointer; padding: 0 0 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--rule);
+    text-align: left; font-family: var(--font-body);
+  }
+  .note-jump:hover .note-name { color: var(--accent-deep); }
+  .note-num {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 30px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .note-name { font-size: 13.5px; font-weight: 600; color: var(--ink); transition: color .18s; }
+  .note-area {
+    width: 100%; min-height: 64px; resize: vertical;
+    border: 1px solid transparent; border-radius: 10px;
+    background: var(--bg); font-family: var(--font-body);
+    font-size: 13px; line-height: 1.62; color: var(--ink-soft);
+    outline: none; padding: 10px 12px;
+    transition: background .15s, border-color .15s, box-shadow .15s, color .15s;
+  }
+  .note-area::placeholder { color: var(--ink-faint); font-style: italic; }
+  .note-area:hover { background: var(--bg); }
+  .note-area:focus {
+    background: var(--bg); color: var(--ink);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 3px rgba(var(--accent-mid-rgb),.12);
+  }
+
+  .footnav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 40px 0 0; margin-top: 56px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-faint); letter-spacing: .06em;
+  }
+  .footnav a { color: var(--ink-soft); text-decoration: none; }
+  .footnav a:hover { color: var(--accent-mid); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg); padding: 11px 20px;
+    font-size: 13px; opacity: 0; transition: opacity .25s, transform .25s;
+    pointer-events: none; z-index: 200;
+  }
+  .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .save-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-faint); margin-left: 6px; vertical-align: middle; transition: background .2s;
+  }
+  .save-dot.is-dirty { background: var(--accent-mid); }
+  .save-dot.is-saved { background: #8FB98A; }
+  .save-dot.is-synced { background: #8FB98A; box-shadow: 0 0 0 2px rgba(143,185,138,.25); }
+
+  /* ── responsive: collapse to single column ── */
+  @media (max-width: 1100px) {
+    .reader { grid-template-columns: minmax(0, 1fr); }
+    .toc, .notes { display: none; }
+  }
+  @media (max-width: 640px) {
+    .head { padding: 32px 0 24px; margin-bottom: 24px; }
+    .head-title { font-size: 24px; }
+    .head-meta { gap: 12px; }
+    .key-concept, .quote-block { padding: 16px; }
+    .figures-grid { grid-template-columns: 1fr; }
+    .sec-h { gap: 10px; }
+    .sec-name { font-size: 20px; }
+  }
+
+  /* ── lightbox (click-to-enlarge figures) ── */
+  .lb-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(66,63,61,.92); padding: 5vh 5vw;
+    cursor: zoom-out; opacity: 0; transition: opacity .22s ease;
+  }
+  .lb-overlay.is-open { display: flex; opacity: 1; }
+  .lb-stage {
+    max-width: 92vw; max-height: 90vh; display: flex;
+    flex-direction: column; align-items: center; gap: 14px;
+  }
+  .lb-img {
+    max-width: 92vw; max-height: 80vh; object-fit: contain;
+    background: #fff; box-shadow: 0 12px 48px rgba(0,0,0,.4);
+    border-radius: 2px;
+  }
+  .lb-caption {
+    color: #fff; font-size: 13px; letter-spacing: .04em;
+    font-family: var(--font-mono); opacity: .82; text-align: center;
+  }
+  .lb-close {
+    position: absolute; top: 18px; right: 22px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff;
+    border: 1px solid rgba(255,255,255,.3); cursor: pointer;
+    font-size: 20px; line-height: 1; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .lb-close:hover { background: rgba(255,255,255,.24); }
+  .figure-card { cursor: zoom-in; }
+
+  /* ── accent themes: set <body data-accent="rose|green|blue"> ── */
+  [data-accent="green"] {
+    --accent-light: #B6DFC4; --accent-mid: #6FBF92; --accent-deep: #1F7A4F;
+    --accent-tint: #F1FAF4; --accent-mid-rgb: 111,191,146;
+  }
+  [data-accent="blue"] {
+    --accent-light: #AFD2EC; --accent-mid: #6BA6D4; --accent-deep: #286BA3;
+    --accent-tint: #F1F7FC; --accent-mid-rgb: 107,166,212;
+  }
+
+  /* When the user opted out of Zotero, hide Zotero-only modules. */
+  body[data-zotero="off"] .module-zotero { display: none; }
+
+</style>
+
+<!-- MathJax 3: render $...$, $$...$$, \(...\), \[...\] in note content. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' },
+    startup: {
+      ready: function () {
+        MathJax.startup.defaultReady();
+        MathJax.startup.promise.then(function () {
+          if (typeof window.litTypeset === 'function') window.litTypeset();
+        });
+      }
+    }
+  };
+</script>
+<script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body data-accent="blue" data-zotero="off">
+
+<div class="progress-rail" id="progressRail"></div>
+
+<header class="topbar">
+  <div class="tb-left">CLOSE READING &middot; <span class="tb-key">local-82765849</span></div>
+  <div class="tb-right">
+    <a class="tb-link tb-back" href="../dashboard.html" title="返回总览 Dashboard" style="text-transform:none; letter-spacing:.04em;">&larr; 总览</a>
+    <span class="tb-sep"></span>
+    <div class="accent-group tb-group" id="accentGroup">
+      <span class="accent-label">Theme</span>
+      <button class="accent-dot" data-accent="rose" type="button" title="Rose"></button>
+      <button class="accent-dot" data-accent="green" type="button" title="Green"></button>
+      <button class="accent-dot" data-accent="blue" type="button" title="Blue"></button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <button class="tb-link" id="btnSync" type="button" title="Auto-save edits & status to a local folder">Sync Folder</button>
+      <button class="tb-link" id="btnExport" type="button">Export JSON</button>
+      <button class="tb-link" id="btnImport" type="button">Import JSON</button>
+      <span class="save-dot" id="saveDot" title="unsaved"></span>
+    </div>
+  </div>
+</header>
+
+<div class="reader">
+
+  <nav class="toc" id="toc"><div class="toc-title">目录 · Contents</div></nav>
+
+  <main class="page body">
+
+    <header class="head">
+      <div class="head-overline">PAPER &middot; 2026 &middot; arXiv</div>
+      <h1 class="head-title">Scaling Agentic Data for Long-Horizon Terminal Intelligence</h1>
+      <p class="head-sub">Zou, Shun, Ma, Ziyu, Zou, Yi, Wang, Yong, Chen, Lin, Chen, Zehui, Chen, Guanhua, Chu, Xiangxiang &amp; Zhao, Feng</p>
+      <div class="head-meta">
+        <div><span class="hm-dot"></span>Collections <span class="hm-val">Unfiled</span></div>
+        <div><span class="hm-dot"></span>DOI <span class="hm-val"><a href="https://doi.org/10.48550/arXiv.2610.13166" target="_blank" rel="noopener">10.48550/arXiv.2610.13166</a></span></div>
+        <div><span class="hm-dot"></span>Highlights <span class="hm-val">0</span></div>
+        <div><span class="hm-dot"></span>Reading time <span class="hm-val hm-time" id="readingTime">—</span></div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Status</span>
+        <div class="status-group">
+          <button class="status-btn" data-status="reading" type="button">Reading</button>
+          <button class="status-btn" data-status="done" type="button">Done</button>
+          <button class="status-btn" data-status="archived" type="button">Archived</button>
+        </div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Research</span>
+        <span class="hm-val">不基于任何研究项目</span>
+      </div>
+      <div class="head-status keywords-row"><span class="hs-label">Keywords</span><span class="keywords-value">数据合成 · 智能体训练数据 · 长程任务 · 环境重构 · 独立挑战 · 渐进任务扩展 · 过程筛选 · 监督微调</span></div>
+    </header>
+
+    <section class="submod abstract-first" aria-label="Abstract 原文">
+      <h3 id="sub-abstract">Abstract（原文）</h3>
+      <details class="abstract-box">
+        <summary>展开 / 收起 Abstract 原文</summary>
+        <div class="abstract-text">Terminal agents are moving beyond local operations toward completing real-world professional tasks. Short trajectories can demonstrate commands and tool calls, but they do not fully show how agents accumulate evidence through exploration, use it to inform judgments, continually adjust strategies based on feedback, and turn intermediate results into final deliverables. High-quality long-horizon trajectories capture these agentic behavioral patterns and their connections within a single problem-solving process, providing richer experience for sustained autonomous work. However, environment synthesis may complete or simplify the key work underlying these patterns in advance and thus remove the need for exploration, implementation, and verification that the agent was meant to perform. To address this, we introduce TerminalHorizon, a fully automated data synthesis engine for long-horizon terminal agents. Starting from real-world professional work, it uses independent execution to identify key work omitted during construction and uses the resulting evidence to guide environment reconstruction. To extend these patterns across stages, it progressively expands tasks under the same goal, introducing new requirements that build on prior results and call for further exploration and improvement. Using this engine, we construct 1.5K task environments and perform supervised fine-tuning of Qwen3.5-27B on the resulting dataset to obtain TerminalHorizon-27B. We achieve substantial performance gains on all 12 benchmarks spanning coding-agent tasks, agentic tasks in real-world production settings, and general reasoning. Multiple RSI case studies, each with a 12-hour research budget, further demonstrate the model&#39;s ability to continue experimenting beyond an initial solution, improve its methods based on feedback, and retain effective improvements in its final deliverables.</div>
+      </details>
+    </section>
+
+    <section class="module reader-block" id="sec-overview">
+      <h2 class="sec-h"><span class="sec-index">01</span><span class="sec-name">论文速览</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">先用几段话回答：这篇文章为什么要做、具体想解决什么、怎样做、最后得出了什么结论。</p>
+
+      <div class="overview-grid">
+        <div class="overview-item">
+          <h3>研究背景</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_background" data-placeholder="已有认识、现实问题与研究缺口…"><p>终端智能体要完成真实工作，需要把探索、诊断、实现、检验和交付连接起来。已有环境合成能扩大任务覆盖，但构造者容易预装核心求解器、提供已经判定好的证据，或让故障分支在运行时无法触发。这样得到的任务文字可以很复杂，实际轨迹却绕过了预期训练的工作。本文关注如何在合成环境中保留<strong>需要智能体亲自完成的实质工作</strong>，并让这些工作跨阶段衔接。</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究目标</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_question" data-placeholder="作者真正想回答的问题或验证的假设…"><p>如何自动构造可执行、可验证的终端任务，使独立求解者实际经历目标行为，并通过同一目标下的连续扩展，形成可用于 SFT 的高质量长程轨迹？关键是让<strong>后续决策依赖之前取得的证据、状态和成果</strong>，同时保持公开要求与私有评分一致。</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究内容</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_approach" data-placeholder="主要方法、研究设计或数据构建方式…"><ol class="markdown-list"><li><strong>先定义任务契约，再联合构造环境</strong>：从文档、仓库、问题报告等专业材料形成任务种子，同时生成指令、环境、参考解、私有验证器与执行配置。求解者只能接触公开指令和环境；评分条件必须能由公开要求及可发现证据推出。</li><li><strong>用独立试做定位被预先完成的工作</strong>：未参与构造的 Challenger 实际求解，审查者结合轨迹和评分识别泄漏、运行缺陷与 horizon gap。随后重构初始状态、工具和对象关系，再交给新的独立执行检验。</li><li><strong>沿同一目标扩展有依赖关系的新要求</strong>：从角色、机制、证据和方法四个方向延展任务，并通过探索所得信息、动作反馈和实例变化连接前后阶段。旧参考解应无法直接满足新增要求，子任务同时更新指令、参考解和验证器。</li><li><strong>筛选有学习价值的过程并进行 SFT</strong>：每个环境采集两条教师轨迹，按轨迹有效性、环境证据驱动的进展和多轮训练价值筛选。允许保留有可靠诊断和恢复过程的未完成样本，再微调 Qwen3.5 系列模型。</li></ol></div>
+        </div>
+        <div class="overview-item overview-conclusion">
+          <h3>主要结论</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_findings" data-placeholder="最重要的发现、结果或方法价值…"><ol class="markdown-list"><li><strong>产出约 3K 条长程训练轨迹</strong>：1,535 个环境覆盖 25 个专业领域，过滤后保留 2,852 条；平均 52.8 轮、P90 为 98 轮，连续反馈链中位数 25 轮。作者报告每条平均包含 8.6 种核心行为模式（§3）。</li><li><strong>终端能力和跨场景表现同时提高</strong>：Qwen3.5-27B 的 Terminal-Bench 2.1 从 46.82 升至 60.67，增加 13.85 个百分点；AutomationBench 全断言通过率从 5.5 升至 17.2，VitaBench 从 20.5 升至 31.8（表2）。</li><li><strong>收益延伸到不同模型规模</strong>：35B-A3B 与 122B-A10B 在 Terminal-Bench 2.1 分别提高 13.11、14.98 个百分点。1K、2K 到完整 2,852 条数据的分数为 57.30、58.43、60.67，支持该数据在已测试区间的扩量价值（§4.3，图5—6文字）。</li><li><strong>四个长时案例展示了实验、回退与交付行为</strong>：相同 12 小时上限下，最终隐藏归一化得分均提高；点云任务为 21.93→48.96。这些是每模型每案例一次运行的过程证据，尚不足以估计稳定的长期成功率（附录C，表5）。</li></ol></div>
+          <div class="field-text editable" contenteditable="true" data-field="guide_insight" data-placeholder="这些结果意味着什么，解释边界在哪里…"><p>数据合成可以把<strong>任务环境本身作为可迭代的设计对象</strong>：先观察智能体如何实际完成工作，再修复预装答案、未触发故障和已经给定的判断，让反馈真正影响后续行动。整体 SFT 结果支持这批数据有训练价值；“跨阶段行为连接造成收益”仍属于有案例支撑的机制解释，需要与轨迹长度、教师能力、覆盖范围及训练 token 分开检验。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="module reader-block" id="sec-deepread">
+      <h2 class="sec-h"><span class="sec-index">02</span><span class="sec-name">原文精读</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">沿着原文的章节顺序，区分每一节说了什么，以及这些内容如何支撑论文的论证。</p>
+
+      <div class="submod">
+        <h3 id="sub-sections">分章节总结与分析</h3>
+        <div id="sectionsContainer"><div class="sections-list"><section class="sec-card" data-index="0" data-num="" data-heading="Abstract" data-page="1"><div class="sec-head"><span class="sec-num"></span><h3>Abstract</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>提出以保留和连接<strong>长程行为模式</strong>为目标的自动数据引擎，结合挑战重构与渐进扩展，用约1.5K环境训练27B模型，并报告12基准和长时案例的提升。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>摘要建立了环境设计、训练数据和模型收益的链条；模块机制仍需正文实验识别，不能从整体提升直接推定每一环有效。</p></div></div></section><section class="sec-card" data-index="1" data-num="1" data-heading="Introduction" data-page="1"><div class="sec-head"><span class="sec-num">1</span><h3>Introduction</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>指出复杂任务可能被预装材料或工具简化，短轨迹难展示跨阶段修订和交付；提出<strong>保留实质工作</strong>与连接不同阶段两个挑战。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>动机把任务描述复杂度与实际执行工作区分开，构成可检验的合成问题；缺少工作保留率的统一量化定义。</p></div></div></section><section class="sec-card" data-index="2" data-num="2" data-heading="Method" data-page="3"><div class="sec-head"><span class="sec-num">2</span><h3>Method</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>概述<strong>挑战驱动重构→同目标扩展</strong>两阶段，从真实专业需求建立可执行环境，再通过执行证据迭代。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>本节是方法总述；独立挑战负责发现现有环境中的工作缺口，渐进扩展负责增加依赖既有成果的新工作。</p></div></div></section><section class="sec-card lvl3" data-index="3" data-num="2.1" data-heading="Task Formulation and Design Objective" data-page="3"><div class="sec-head"><span class="sec-num">2.1</span><h3>Task Formulation and Design Objective</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>定义五元任务包与公开视图，只开放<strong>指令和环境</strong>；目标行为涉及探索、诊断、建设、验证及协调。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>信息隔离使试做者更接近真实求解条件；还需审计文件、进程和工具输出，防止内部参考材料通过环境泄漏。</p></div></div></section><section class="sec-card lvl3" data-index="4" data-num="2.2" data-heading="Challenge-Guided Long-Horizon Synthesis" data-page="3"><div class="sec-head"><span class="sec-num">2.2</span><h3>Challenge-Guided Long-Horizon Synthesis</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>Planner依据覆盖缺口规划研究，研究代理收集专业材料，构造代理联合生成任务包；独立执行与horizon gap分析定位<strong>已被提前完成的工作</strong>，重构后再挑战。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>式3约束私有评分由公开语义支持，能减少隐藏要求。重构应以实际缺失工作为依据，避免惩罚高效合法解；本文用案例展示闭环，未给出全量成功率与模块消融。</p></div></div></section><section class="sec-card lvl3" data-index="5" data-num="2.3" data-heading="Progressive Horizon Expansion" data-page="5"><div class="sec-head"><span class="sec-num">2.3</span><h3>Progressive Horizon Expansion</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>沿角色、机制、证据、方法四轴扩展；用探索信息、动作反馈、实例变化建立<strong>前后阶段依赖</strong>，并同步更新任务全部组件。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>检查父解无法直接覆盖新增要求比增加文本长度更具体；还需长度匹配无依赖对照，以及独立审计新增评分是否可由公开信息发现。</p></div></div></section><section class="sec-card" data-index="6" data-num="3" data-heading="Analysis of Synthesized Data" data-page="5"><div class="sec-head"><span class="sec-num">3</span><h3>Analysis of Synthesized Data</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>构建1,535环境、2,852保留轨迹，覆盖25领域；均值52.8轮、P90为98、连续反馈链中位数25，并报告平均<strong>8.6种核心模式</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>各方法300任务用相同教师协议比较轮数，改善了描述公平性；统计仍受任务池、工具反馈格式与模式标注影响，长度和模式多样性尚未与训练收益分离。</p></div></div></section><section class="sec-card" data-index="7" data-num="4" data-heading="Experiments" data-page="6"><div class="sec-head"><span class="sec-num">4</span><h3>Experiments</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>本节为<strong>实验总标题</strong>，具体评测设置、结果、规模分析和长时应用由4.1—4.4展开。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>标题本身无独立实验内容；判断证据需落到下属协议、表格和单次案例范围。</p></div></div></section><section class="sec-card lvl3" data-index="8" data-num="4.1" data-heading="Experimental Setup" data-page="6"><div class="sec-head"><span class="sec-num">4.1</span><h3>Experimental Setup</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>评测终端、生产型智能体与通用推理共12基准；27B全参数SFT采用262K序列、3epochs，默认<strong>144张H20-141GB</strong>。表1列出不同数据和基座的终端结果。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>同基座和相同harness的比较最有解释力；跨方法表同时混合架构、数据量、训练方法与模型卡分数，不能作为固定资源消融。TB2.0基座41.6带†需单独标注。</p></div></div></section><section class="sec-card lvl3" data-index="9" data-num="4.2" data-heading="Main Results" data-page="7"><div class="sec-head"><span class="sec-num">4.2</span><h3>Main Results</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>报告12基准全部改善；<strong>TB2.1为46.82→60.67</strong>，AutomationBench通过率5.5→17.2，VitaBench20.5→31.8，五项推理也有提升。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这些数值是整体训练方案的结果，差值按绝对百分点解释。没有置信区间；部分小型推理集的提升需要结合题数与重复次数评估。</p></div></div></section><section class="sec-card lvl3" data-index="10" data-num="4.3" data-heading="Analysis and Ablation Studies" data-page="8"><div class="sec-head"><span class="sec-num">4.3</span><h3>Analysis and Ablation Studies</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>100任务比较两教师；DeepSeek均值53.5轮、反馈链30.3、通过率50%，均高于GLM相应值；另报告<strong>跨规模与1K—3K扩量</strong>收益。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>教师能力、链长和成功率共同变化，不能识别因果；本节虽称ablation，未报告去掉挑战、重构、扩展或过程筛选的结果。</p></div></div></section><section class="sec-card lvl3" data-index="11" data-num="4.4" data-heading="Long-Horizon Task Applications" data-page="8"><div class="sec-head"><span class="sec-num">4.4</span><h3>Long-Horizon Task Applications</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>同12小时上限比较RSI任务；点云案例从单参考视图代理分数转向<strong>留一视图诊断</strong>，修订对齐和覆盖策略，最终归一化奖励0.2193→0.4896。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>正文把差值写作27.03%，附录给出奖励×100口径，应理解为增加27.03个归一化分数点。结果展示修订评价方式的案例，无法代表跨任务稳定成功率。</p></div></div></section><section class="sec-card" data-index="12" data-num="5" data-heading="Related Work" data-page="9"><div class="sec-head"><span class="sec-num">5</span><h3>Related Work</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>区分长程执行harness、终端环境合成与本文关注的<strong>跨阶段行为经验</strong>，将方法放在覆盖、复杂化和行为连接的研究谱系中。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>文献定位有助于确定待检验变量；本文未按同基座、同token重训已有合成方法，相关工作对照仍以汇总表为主。</p></div></div></section><section class="sec-card" data-index="13" data-num="6" data-heading="Conclusion" data-page="10"><div class="sec-head"><span class="sec-num">6</span><h3>Conclusion</h3><span class="sec-page">p.10</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>总结挑战重构和渐进扩展对整体训练的价值；同时提供<strong>AI使用、伦理与复现声明</strong>，指向附录中的协议、筛选和去污染。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>声明说明作者使用生成模型构造环境与轨迹并人工审阅内容。复现声明提供方法入口，尚不能替代总成本、完整代码可运行性和许可证核验。</p></div></div></section><section class="sec-card" data-index="14" data-num="A" data-heading="Implementation Details" data-page="16"><div class="sec-head"><span class="sec-num">A</span><h3>Implementation Details</h3><span class="sec-page">p.16</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>附录A为<strong>实现细节总标题</strong>，下设训练与评测协议。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>将训练和评测参数分开读取有助于防止把评测8卡设置误认为训练资源。</p></div></div></section><section class="sec-card lvl3" data-index="15" data-num="A.1" data-heading="Training Details" data-page="16"><div class="sec-head"><span class="sec-num">A.1</span><h3>Training Details</h3><span class="sec-page">p.16</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>三种模型共用训练配方：全参SFT、AdamW、1e−5、cosine、5%warmup、3epochs、BF16、ZeRO-3、FlashAttention-2、262K序列、<strong>不packing</strong>、seed42。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>参数细节支持复现；缺少完整有效batch、GPU小时和显存利用率，使计算效率比较仍不充分。</p></div></div></section><section class="sec-card lvl3" data-index="16" data-num="A.2" data-heading="Evaluation Protocols" data-page="16"><div class="sec-head"><span class="sec-num">A.2</span><h3>Evaluation Protocols</h3><span class="sec-page">p.16</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>明确各基准任务数、harness、采样温度、重试与重复次数；TB每题三次及三小时上限，Vita/τ²每题四次，推理三次。评测用<strong>8张H20、TP8</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>技术重试与独立评测次数分开描述较清楚。Vita/τ²的模拟用户和部分裁判与训练教师同系列，需关注模型偏好相关性；主要结果仍缺少区间估计。</p></div></div></section><section class="sec-card" data-index="17" data-num="B" data-heading="Additional Experimental Analysis" data-page="17"><div class="sec-head"><span class="sec-num">B</span><h3>Additional Experimental Analysis</h3><span class="sec-page">p.17</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>本附录组织<strong>任务类别表现与轨迹数效率</strong>两类补充分析。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这里无新增独立实验结论，证据由B.1和B.2承担。</p></div></div></section><section class="sec-card lvl3" data-index="18" data-num="B.1" data-heading="Performance across Task Categories" data-page="17"><div class="sec-head"><span class="sec-num">B.1</span><h3>Performance across Task Categories</h3><span class="sec-page">p.17</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>TB2.1的16类别中11类提升、5类持平；调试、数据科学、机器学习分别增加<strong>46.7、25.0、22.2个百分点</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>多个类别仅1—5题，大百分点变化可能由少量题决定；分类结果支持覆盖广度，不能稳定估计每个专业领域的真实效果。</p></div></div></section><section class="sec-card lvl3" data-index="19" data-num="B.2" data-heading="Data Efficiency" data-page="18"><div class="sec-head"><span class="sec-num">B.2</span><h3>Data Efficiency</h3><span class="sec-page">p.18</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>约3K轨迹达到TB2.0的55.8，比同基座同Terminus-2的Terminal-Universe约32K轨迹高<strong>3.0个百分点</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>按轨迹数量看有吸引力；不同平均长度、教师成本、合成重构与训练算力未匹配，单位token和总费用效率仍未知。</p></div></div></section><section class="sec-card" data-index="20" data-num="C" data-heading="Additional Long-Horizon Task Applications" data-page="18"><div class="sec-head"><span class="sec-num">C</span><h3>Additional Long-Horizon Task Applications</h3><span class="sec-page">p.18</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>四个RSI案例均给12小时上限，每模型每例一次，隐藏评分只在最后执行；表5分别报告最终奖励与<strong>实际研究时长</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>单次运行、可提前结束和任务选择限制统计外推。相同时间上限无法保证实际计算量一致；奖励为归一化优化分数，不能当作成功率。</p></div></div></section><section class="sec-card lvl3" data-index="21" data-num="C.1" data-heading="Warehouse Robot Routing and Macro Optimization" data-page="19"><div class="sec-head"><span class="sec-num">C.1</span><h3>Warehouse Robot Routing and Macro Optimization</h3><span class="sec-page">p.19</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>仓储机器人联合优化路线与宏压缩，改进模型保留有效压缩与路线选择；基座中间成本286.05，提交却退化到466.35，改进模型提交281.11，隐藏奖励<strong>14.63→39.72</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>此例突出最终交付保留进展的重要性。两模型都搜索较久，但最终版本选择与算法修改同时改变，无法独立估计哪类训练行为造成收益。</p></div></div></section><section class="sec-card lvl3" data-index="22" data-num="C.2" data-heading="Tidal Seabed Friction Field Inversion" data-page="20"><div class="sec-head"><span class="sec-num">C.2</span><h3>Tidal Seabed Friction Field Inversion</h3><span class="sec-page">p.20</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>潮汐反演从稀疏含异常测点估计摩擦场；改进模型比较空间基、鲁棒损失和正则，隐藏潮位RMSE <strong>0.021873→0.009386</strong>，归一化奖励27.41→48.15。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>评价对象是独立测点的潮位误差，无法据此断言真实摩擦场已准确恢复。仅八个隐藏盆地且一次研究运行，泛化范围有限；示例盆地按最大相对改善事后挑选。</p></div></div></section><section class="sec-card lvl3" data-index="23" data-num="C.3" data-heading="Strategy Optimization" data-page="21"><div class="sec-head"><span class="sec-num">C.3</span><h3>Strategy Optimization</h3><span class="sec-page">p.21</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>2048比较expectimax、启发式与缓存策略，改进模型纠正无界缓存并回退退化候选；隐藏16seed平均游戏分<strong>23,183.75→38,626.25</strong>，奖励37.54→45.25。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>两政策隐藏运行有效率均1，分差主要体现策略质量。公开仅8seed，存在调参过拟合风险；单次研究轨迹仍难分离随机性与训练效果。</p></div></div></section><section class="sec-card lvl3" data-index="24" data-num="C.4" data-heading="Multi-View Point-Cloud Fusion" data-page="24"><div class="sec-head"><span class="sec-num">C.4</span><h3>Multi-View Point-Cloud Fusion</h3><span class="sec-page">p.24</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>点云融合要求配准、抑噪与覆盖；公共自检只验接口。改进模型发现单参考视图代理指标偏差，用<strong>留一视图诊断</strong>改进融合；隐藏均值F-score48.04→77.68。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>原始F-score与校准奖励21.93→48.96是两种指标。该案例直接说明接口合规和自设代理高分均不能确认任务质量，复现时应保留独立的完整场景评价。</p></div></div></section><section class="sec-card" data-index="25" data-num="D" data-heading="Professional Domain Coverage" data-page="24"><div class="sec-head"><span class="sec-num">D</span><h3>Professional Domain Coverage</h3><span class="sec-page">p.24</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>1,535任务分属25主领域，含教育、农业、医疗、财务和科学；强调终端作为<strong>统一交互接口</strong>，不限定任务行业。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>领域标签说明题材范围；合成规则和模拟服务仍需与真实业务有效性区分。未提供每个领域的训练收益或可靠性估计。</p></div></div></section><section class="sec-card" data-index="26" data-num="E" data-heading="Agentic Behavioral Patterns" data-page="25"><div class="sec-head"><span class="sec-num">E</span><h3>Agentic Behavioral Patterns</h3><span class="sec-page">p.25</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>附录E为<strong>行为模式定义与组织方式</strong>总标题。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>具体定义和证据位于E.1—E.2；分类标签本身不足以证明训练机制。</p></div></div></section><section class="sec-card lvl3" data-index="27" data-num="E.1" data-heading="Definitions and Taxonomy" data-page="25"><div class="sec-head"><span class="sec-num">E.1</span><h3>Definitions and Taxonomy</h3><span class="sec-page">p.25</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>将行为模式定义为围绕目标连接行动、观察和后续决策的结构，27种分五类；类别可共现，<strong>不构成固定执行阶段</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>定义比命令类型更贴近过程质量，但模式边界存在判断空间；缺少人工一致性和自动标注误差，限制统计解释。</p></div></div></section><section class="sec-card lvl3" data-index="28" data-num="E.2" data-heading="Organization of Behavioral Patterns within Trajectories" data-page="25"><div class="sec-head"><span class="sec-num">E.2</span><h3>Organization of Behavioral Patterns within Trajectories</h3><span class="sec-page">p.25</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>用TLS网关、合成中子衍射和护理排班三条轨迹展示多模式相互连接；表6—7列出全部定义，包括<strong>独立交叉检验、改动后复验和交付核对</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>作者明确这三例不估计模式频率或时长。TLS仅见局部回归通过，中子拟合未见独立重拟合结果，排班SQL与验证器共用数据库；多路径检查的独立性需要逐项审计。</p></div></div></section><section class="sec-card" data-index="29" data-num="F" data-heading="Trajectory Filtering Criteria" data-page="28"><div class="sec-head"><span class="sec-num">F</span><h3>Trajectory Filtering Criteria</h3><span class="sec-page">p.28</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>审查模型读取完整轨迹，不额外接收最终reward；按<strong>有效性、环境证据驱动进展、多轮训练价值</strong>筛选，允许可靠失败、局部错误和恢复过程。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这为保留诊断经验提供可复用原则；没有量化误保/误拒、失败样本占比或对SFT的净贡献。隐藏reward不等于轨迹中完全没有可推知的结果线索。</p></div></div></section><section class="sec-card" data-index="30" data-num="G" data-heading="Detailed Benchmark Decontamination" data-page="30"><div class="sec-head"><span class="sec-num">G</span><h3>Detailed Benchmark Decontamination</h3><span class="sec-page">p.30</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>描述训练任务与评测实例的<strong>指令级去污染流程</strong>，联合精确片段、近重复召回和语义审查。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该审计评估可检出的任务复用风险，其结论范围取决于检索召回及比较字段。</p></div></div></section><section class="sec-card lvl3" data-index="31" data-num="G.1" data-heading="Comparison Corpora" data-page="30"><div class="sec-head"><span class="sec-num">G.1</span><h3>Comparison Corpora</h3><span class="sec-page">p.30</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>以完整instruction.md对比12组共3,251评测实例，保留逐步披露情境，不含参考答案和私有评分；<strong>不摘要、不截断</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>避免摘要丢失独特约束；仍未比较环境附件与工具实现，也不能检验教师或基座的预训练污染。</p></div></div></section><section class="sec-card lvl3" data-index="32" data-num="G.2" data-heading="Text Overlap and Near-Duplicate Retrieval" data-page="30"><div class="sec-head"><span class="sec-num">G.2</span><h3>Text Overlap and Near-Duplicate Retrieval</h3><span class="sec-page">p.30</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>NFKC及小写规范化后做全串、13/14-token重合、5-gram Jaccard与TF–IDF；数学8-gram用于补充召回，JSD仅刻画<strong>词分布差异</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>明确短数学片段和分布相似都不直接判污染，口径合理；符号改写、结构复现及低词汇相似复用仍可能漏检。</p></div></div></section><section class="sec-card lvl3" data-index="33" data-num="G.3" data-heading="Semantic Assessment of Candidate Pairs" data-page="30"><div class="sec-head"><span class="sec-num">G.3</span><h3>Semantic Assessment of Candidate Pairs</h3><span class="sec-page">p.30</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>每基准合并精确匹配、TF–IDF前10、Jaccard前5、数学重合前5，去重后模型审查目标、初始状态、独特约束与转换；给出<strong>污染/清洁/不确定</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>多检索器提高候选多样性，但固定top-k仍限制召回。需要人工标注集或注入改写污染来评估漏检，论文未报告这类校准。</p></div></div></section><section class="sec-card lvl3" data-index="34" data-num="G.4" data-heading="Decontamination Results" data-page="31"><div class="sec-head"><span class="sec-num">G.4</span><h3>Decontamination Results</h3><span class="sec-page">p.31</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>没有全串或13/14-token重合；数学8-gram共405对短片段重合，190候选经语义审查均清洁，<strong>1,535任务全部保留</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>结果支持该流程未发现任务复用。190候选全清洁不意味着对其余约499万训练—评测组合或底层附件的完整无污染保证。</p></div></div></section><section class="sec-card" data-index="35" data-num="H" data-heading="Case Studies of Challenge-Guided Reconstruction" data-page="31"><div class="sec-head"><span class="sec-num">H</span><h3>Case Studies of Challenge-Guided Reconstruction</h3><span class="sec-page">p.31</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>选数值校准、分布式恢复与福利管理三例，追踪<strong>初始试做→重构→再次独立试做</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>案例展示失败合成的具体原因和修复方向，但属于定性选择，不能估计该类缺陷的总体出现率。</p></div></div></section><section class="sec-card lvl3" data-index="36" data-num="H.1" data-heading="Radio-Interferometric Calibration" data-page="32"><div class="sec-head"><span class="sec-num">H.1</span><h3>Radio-Interferometric Calibration</h3><span class="sec-page">p.32</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>初始校准工具内置拟合例程，挑战者可直接调用；重构移除核心拟合并公开必要轴/表格式，再挑战实现拟合、按残差修订并检验holdout，最终<strong>通过验证器</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>恢复了数值建模与实现需求；重构后RMS数值属于同一新任务的分组结果，不能作为旧新版本能力增益或纯模块消融。</p></div></div></section><section class="sec-card lvl3" data-index="37" data-num="H.2" data-heading="RabbitMQ Recovery Across Broker and Application State" data-page="32"><div class="sec-head"><span class="sec-num">H.2</span><h3>RabbitMQ Recovery Across Broker and Application State</h3><span class="sec-page">p.32</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>RabbitMQ经历5轮重构、6次挑战；预制heal与自动重试被移除，但故障分支仍曾未触发，最终将真实AMQP路径与分区连接，恢复缺失前驱事件后<strong>216条outbox均确认</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>最有诊断价值的证据是中间失败：规格写有应用恢复分支，实际执行却可能绕过。应在合成质控中验证故障触发、可观察后果和下游依赖，而非只审任务文本。</p></div></div></section><section class="sec-card lvl3" data-index="38" data-num="H.3" data-heading="Family Enrollment Changes and Payroll Reconciliation" data-page="33"><div class="sec-head"><span class="sec-num">H.3</span><h3>Family Enrollment Changes and Payroll Reconciliation</h3><span class="sec-page">p.33</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>福利变更经历4轮重构、5次挑战，从固定更新扩展到冲突文档、资格判断及版本化跨系统同步；最终按证据修正人员资格并完成<strong>312美元薪资调整</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>真实业务逻辑由合成家庭和规则模拟。新轨迹表明文档真实性、事件资格和更新一致性分别约束决策，案例内通过不能等同于实际福利政策适用性。</p></div></div></section><section class="sec-card" data-index="39" data-num="I" data-heading="Qualitative Analysis of Progressive Task Evolution" data-page="34"><div class="sec-head"><span class="sec-num">I</span><h3>Qualitative Analysis of Progressive Task Evolution</h3><span class="sec-page">p.34</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>分析两个初始任务的三条扩展谱系，逐代说明旧解不足、新工作和新增依赖，考察<strong>同目标演化</strong>的具体含义。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>用父子对照呈现扩展内容比只报更长轨迹更清楚；还需全量谱系统计和扩展前后独立执行的量化比较。</p></div></div></section><section class="sec-card lvl3" data-index="40" data-num="I.1" data-heading="Two Branches from the Same Photo-Library Task" data-page="34"><div class="sec-head"><span class="sec-num">I.1</span><h3>Two Branches from the Same Photo-Library Task</h3><span class="sec-page">p.34</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>同一PhotoPrism父任务生成两条三代分支：一条处理双侧编辑、归档恢复、分组与主版本；另一条由媒体证据恢复身份，再跨系统合并并处理<strong>字节已变的对应文件</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>新增要求依赖身份推断和三方状态比较，提供避免独立子题拼接的实例。文件摘要不足以判定语义身份；原生索引和重扫验证最终稳定状态。</p></div></div></section><section class="sec-card lvl3" data-index="41" data-num="I.2" data-heading="Hotel Event Scheduling" data-page="35"><div class="sec-head"><span class="sec-num">I.2</span><h3>Hotel Event Scheduling</h3><span class="sec-page">p.35</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>十项活动保持不变，依次增加参会者路径、场馆事故恢复和设备物流；设备17:25才可用导致活动由17:15改至<strong>17:30</strong>并更换方案。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>工作量来自资源、地点、时间的耦合，而非活动数量增加。失败候选的反馈改变后续计划，适合用于设计可验证的跨对象依赖。</p></div></div></section><section class="sec-card" data-index="42" data-num="J" data-heading="Prompt Templates" data-page="36"><div class="sec-head"><span class="sec-num">J</span><h3>Prompt Templates</h3><span class="sec-page">p.36</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>附录J提供<strong>过程筛选与污染审查prompt</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>模板提高部分审查的可复现性；其余研究、构造、重构和扩展prompt及运行预算仍需公开包核验。</p></div></div></section><section class="sec-card lvl3" data-index="43" data-num="J.1" data-heading="Trajectory Filtering Prompt" data-page="36"><div class="sec-head"><span class="sec-num">J.1</span><h3>Trajectory Filtering Prompt</h3><span class="sec-page">p.36</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>要求完整读取轨迹、将思考与实际执行区分，按三维度输出KEEP/DROP及2—4条证据；允许<strong>未完成但可靠的过程</strong>与局部错误恢复。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该模板避免只按成功或轮数筛选，但允许部分孤立错误完成声明的样本，可能产生监督噪声；需以人工校准和下游训练消融评估。</p></div></div></section><section class="sec-card lvl3" data-index="44" data-num="J.2" data-heading="Benchmark Decontamination Prompt" data-page="38"><div class="sec-head"><span class="sec-num">J.2</span><h3>Benchmark Decontamination Prompt</h3><span class="sec-page">p.38</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>比较候选对的完整任务描述，以核心目标、状态、独特约束和解法结构判断，输出<strong>CLEAN/CONTAMINATED/UNCERTAIN</strong>并记录证据。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>检索分数仅作召回，语义裁决单独说明，逻辑清楚。原文要求完整JSONL与原子改名，可防审查记录丢失；仍需评估审查模型对改名复现的敏感度。</p></div></div></section></div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-quotes">关键引文</h3>
+        <div id="quoteContainer"><div class="field-text" style="color:var(--ink-faint);font-style:italic;">尚无关键引文。在 Zotero 高亮会自动出现在下方"Highlights from Zotero"。</div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-figures">论文图表</h3>
+        <div id="figuresContainer"><div class="figures-grid"><div class="figure-card"><img src="local-82765849_images/local-82765849_fig01.png" alt="Figure p.1" loading="lazy"><div class="figure-meta"><span>p.1</span><span>256×256</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig02.jpeg" alt="Figure p.2" loading="lazy"><div class="figure-meta"><span>p.2</span><span>1637×961</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig03.jpeg" alt="Figure p.2" loading="lazy"><div class="figure-meta"><span>p.2</span><span>795×495</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig04.jpeg" alt="Figure p.2" loading="lazy"><div class="figure-meta"><span>p.2</span><span>648×608</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig05.jpeg" alt="Figure p.2" loading="lazy"><div class="figure-meta"><span>p.2</span><span>2079×756</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig06.png" alt="Figure p.2" loading="lazy"><div class="figure-meta"><span>p.2</span><span>256×256</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig07.png" alt="Figure p.4" loading="lazy"><div class="figure-meta"><span>p.4</span><span>978×1832</span></div></div><div class="figure-card"><img src="local-82765849_images/local-82765849_fig08.png" alt="Figure p.4" loading="lazy"><div class="figure-meta"><span>p.4</span><span>256×256</span></div></div></div></div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-highlights">Zotero 高亮</h3>
+        <div class="info-box">
+          <span class="info-label">Highlights from Zotero (0)</span>
+          <div id="highlightsBox"><div style="color:var(--ink-faint);font-style:italic;">未检测到 PDF 高亮。摘要基于 abstract 生成。</div></div>
+        </div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-notes">Zotero 笔记</h3>
+        <div class="info-box">
+          <span class="info-label">Notes from Zotero</span>
+          <div id="notesBox"><div style="color:var(--ink-faint);font-style:italic;">无 Zotero 笔记。</div></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="module reader-block" id="sec-relevance">
+      <h2 class="sec-h"><span class="sec-index">03</span><span class="sec-name">参考意义</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">把论文放回实际研究和复现决策中：它有什么价值，代价和风险是什么，还留下哪些问题。</p>
+
+      <div class="relevance-grid">
+        <div class="relevance-item">
+          <h3>风险与局限</h3>
+          <ol class="editable-list" contenteditable="true" data-field="risks"><li><strong>模块归因不足</strong>：§4.3 比较教师、模型规模和数据量，未提供移除 challenge、重构、渐进扩展或过程筛选的受控训练消融。</li><li><strong>效率口径有限</strong>：约3K条与其他方法的轨迹数比较未匹配 token、教师调用、环境重构、训练计算或推理实际使用时间；TB2.0 基座分数还标为模型卡来源。</li><li><strong>审查与模式统计缺少校准</strong>：过程筛选和去污染依赖模型判断；全量行为模式的人工审查规模、一致性、误判率和不确定区间未充分报告。</li><li><strong>RSI 只有四个单次运行案例</strong>：相同12小时上限下基座常提前结束，实际计算量不同；案例选择与策略随机性限制普遍结论。</li><li><strong>去污染覆盖边界</strong>：主要检查指令描述，词汇召回可能漏掉低相似度语义复现，也无法排除基座和教师预训练记忆。</li><li><strong>合成任务真实性边界</strong>：专业材料提供来源，许多事件、接口及家庭规则仍由环境合成；领域覆盖不等于真实部署有效性。</li><li><strong>复现资源与披露不足</strong>：默认144张H20-141GB、262K序列，未给出总GPU小时、合成总调用成本、各阶段接受率及完整流水线停止规则。</li></ol>
+          <div class="field-text editable" contenteditable="true" data-field="guide_limitations" data-placeholder="最重要的边界、威胁或替代解释…"><p>缺少移除独立挑战、重构或渐进扩展的直接模块消融，也缺少固定训练 token 和总成本的短长轨迹对照。数据筛选与去污染依赖模型审查，未给出人工一致性校准；RSI 四例均仅一次运行。<strong>少量轨迹不代表低算力成本</strong>：正文报告默认使用 144 张 H20-141GB，最大序列长度为 262,144 token。</p></div>
+        </div>
+        <div class="relevance-item">
+          <h3>成本与复现条件</h3>
+          <div class="field-text editable" contenteditable="true" data-field="cost" data-placeholder="复现本文需要多少数据、算力、专家或工程投入…"><p><strong>已报告设置</strong>：LLaMA-Factory 全参数 SFT，3 epochs，AdamW（β₁=0.9、β₂=0.95），峰值学习率 1e−5，cosine，warmup 0.05，weight decay 0.1，gradient clipping 1.0；BF16、ZeRO-3、FlashAttention-2，最大262,144 token，不 packing，每设备batch 1，seed 42。正文默认144张H20-141GB/18节点。评测用8张H20、TP8、262K上下文，另需Harbor、Terminus-2和相应沙箱。</p><p><strong>采集依赖</strong>：DeepSeek-V4-Pro-0813 教师、gpt-5.6-luna（high）过程审查、真实软件栈或合成状态服务、各任务参考解和验证器。论文提供部分审查prompt，但未完整量化任务研究/重构调用预算、最终成功/失败轨迹占比和人工审计。当前工作仅下载论文并生成精读笔记，未下载模型、未训练或运行其任务包。若开展复现，应先核对公开包版本、许可证和运行依赖，并按服务器约定将模型下载至本地公共模型目录后加载。</p></div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>与我研究的关联</h3>
+          <div class="key-concept">
+            <span class="kc-label">Why this matters</span>
+            <div class="field-text editable" contenteditable="true" data-field="relevance_to_my_work" data-placeholder="与当前研究的具体问题、设计选择或测量难题的关联…"><p>按用户指定的<strong>数据合成</strong>领域，本文提供三个可以独立研究的设计点：以独立执行审计环境是否提前完成目标工作；以父解能否覆盖子要求和信息/状态依赖检查扩展质量；以环境证据支持的进展筛选训练过程。这里讨论该领域的一般研究意义，未绑定或改写现有具体研究项目。</p><p>建议把“challenge gap”操作化为<strong>预期工作项→公开可发现依据→实际执行证据→未执行原因→重构措施→再挑战结果</strong>，允许高效替代解。对新任务先审计原子评分条件与公开契约，再在固定种子池、教师、token和预算下比较原始环境、仅重构、仅扩展及两者组合。增加长度匹配的无依赖扩展与步骤打乱对照，检验跨阶段依赖是否提供超出长度的收益。以上是由论文启发的实验设计，作者未执行这些完整对照。</p><p>过程筛选可比较成功样本、成功加可靠失败过程、未筛选全集，测量最终任务收益与错误行为复现率；验证器可加入人工审计、合法替代解和故意错误产物测试。成本应同时报告每个合格环境、每百万训练token与每个下游提升点的合成/训练开销，并在与训练种子和扩展谱系分离的测试任务上验证迁移。</p></div>
+          </div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3 id="sub-questions">待追问</h3>
+          <ol class="editable-list" contenteditable="true" data-field="open_questions"><li>如何以可审计的工作依赖图度量horizon gap，并区分预先完成工作、合法高效解和教师能力不足？</li><li>固定训练token和教师预算时，重构、渐进扩展及其交互作用各能带来多少收益？</li><li>将依赖扩展与长度匹配的独立子任务拼接比较，能否识别跨阶段反馈的额外价值？</li><li>可靠失败轨迹对长程SFT的收益，能否用最终正确率、恢复成功率与错误行为模仿率共同量化？</li><li>怎样用人工校准、合法替代解和故意错误产物审计，验证自动评分与过程筛选的可靠性？</li><li>引入强制同计算预算或禁止提前退出的RSI对照后，持续改进与最终交付收益是否仍成立？</li></ol>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>我的笔记</h3>
+          <div class="key-concept">
+            <span class="kc-label">Your notes · 支持 Markdown 与 LaTeX 公式</span>
+            <div class="field-text editable" contenteditable="true" data-field="custom_notes" data-placeholder="你自己的笔记、公式、待办… 行内用 $…$，独立公式用 $$…$$"><p>研究领域：<strong>数据合成</strong>（用户指定）。精读版本：arXiv:2610.13166v2，2026-10-20。依据Python/PyMuPDF抽取文本阅读全部正文与方法附录；未查看论文图片。初始抽取存在父章节遗漏、页级重叠和8K字符截断，已使用本地文本抽取脚本按完整目录及精确标题边界修正，保留原始抽取备份。无Zotero高亮，因此不生成引文摘录。证据标签区分作者报告、支持性推断与待验证机制。</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <nav class="footnav">
+      <div>GENERATED 2026-11-01T18:51:57+0800 &middot; paper-notes</div>
+      <a href="../dashboard.html">← Back to Dashboard</a>
+    </nav>
+
+  </main>
+
+  <aside class="notes" id="notes">
+    <div class="notes-head">
+      <span class="notes-title">批注 · Notes</span>
+      <span class="notes-count" id="notesCount">0</span>
+    </div>
+    <div class="notes-list">
+      <div class="note-card" data-module="sec-overview">
+        <button class="note-jump" data-target="sec-overview" type="button"><span class="note-num">01</span><span class="note-name">论文速览</span></button>
+        <textarea class="note-area" data-module="sec-overview" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-deepread">
+        <button class="note-jump" data-target="sec-deepread" type="button"><span class="note-num">02</span><span class="note-name">原文精读</span></button>
+        <textarea class="note-area" data-module="sec-deepread" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-relevance">
+        <button class="note-jump" data-target="sec-relevance" type="button"><span class="note-num">03</span><span class="note-name">参考意义</span></button>
+        <textarea class="note-area" data-module="sec-relevance" placeholder="对这一模块的备注…"></textarea>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importInput" accept=".json" style="display:none">
+
+<div class="lb-overlay" id="lbOverlay" aria-hidden="true">
+  <button class="lb-close" id="lbClose" type="button" aria-label="Close">×</button>
+  <div class="lb-stage">
+    <img class="lb-img" id="lbImg" alt="enlarged figure" src="">
+    <div class="lb-caption" id="lbCaption"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var ZKEY = "local-82765849";
+  var LS_KEY = "litreader:" + ZKEY + ":edits";
+  var LS_STATUS = "litreader:" + ZKEY + ":status";
+  var LS_ACCENT = "litreader:" + ZKEY + ":accent";
+  var LS_DIR = "litreader:" + ZKEY + ":dirhandle";
+  var INITIAL = {"objective": "TerminalHorizon 通过独立试做驱动环境重构、同目标渐进扩展和过程筛选，合成 2,852 条长程轨迹，使 Qwen3.5-27B 的 Terminal-Bench 2.1 提高 13.85 个百分点，但关键合成模块的独立贡献仍待消融验证。", "problem_landscape": "技能组合和递归扩展能制造更多任务，但任务规格的复杂性与实际求解工作之间可能脱节。**预装求解器、已判定证据、自动恢复客户端、无法触发的故障**都会缩短关键学习过程；直接增加步骤、等待或无关条件也可能制造冗余。因此需要执行后追踪哪些工作被省略，以及后续阶段是否真正使用前序信息。", "approach": "任务包为 $T=(I,E,S,V,M)$，分别对应指令、环境、参考解、验证器和执行配置；求解策略只看到 $P(T)=(I,E)$。设计约束 $C_{\\mathrm{sem}}(V)\\subseteq \\mathrm{Sem}(I,O_{\\mathrm{pub}}(E))$ 要求隐藏评分的语义条件可从公开信息发现，隐藏测试数据可以不公开。该约束是设计原则，文中未证明每个生成包都形式化满足它。\n\n**闭环一：任务重构。** Planner 根据任务档案及审查记录选覆盖缺口，研究代理产生有证据的种子，构造代理联合生成五件套。独立 Challenger 在隔离于内部材料的公开环境中执行，审查者检查实际轨迹、最终状态和评分；构造代理据此调整状态、对象关系、待实现内容及反馈，重新独立挑战。审查应区分高效求解与环境提前完成工作。\n\n**闭环二：渐进扩展。** 内容轴为扩展角色、深化机制、丰富证据、升级方法；交互轴为探索与判断、动作与反馈、实例变化与适应。新增工作必须利用已有对象或成果，不能被父解直接覆盖；每代是独立任务包，公开要求、环境、参考解和评分同步更新。\n\n**轨迹层质控。** gpt-5.6-luna（high）读取完整行动—观察记录，不额外提供最终 reward，以有效性、证据驱动进展、多轮训练价值作 KEEP/DROP。成功、轮数、局部错误均不单独决定去留。保留过程可靠的未完成轨迹，也会保留部分孤立错误；其对 SFT 的净作用未有专门消融。", "impact": "提供 **challenge–reconstruction 内循环**与利用审查记录规划下一批研究的外循环；提出同目标的渐进扩展，显式检查父参考解对新增要求的不足；发布 TerminalHorizon-3K 的构建与训练结果，并给出过程筛选、任务去污染、重构案例和扩展谱系。27 种行为模式提供设计与分析词汇，论文未把它们建立为已经验证的因果指标。", "risks": ["**模块归因不足**：§4.3 比较教师、模型规模和数据量，未提供移除 challenge、重构、渐进扩展或过程筛选的受控训练消融。", "**效率口径有限**：约3K条与其他方法的轨迹数比较未匹配 token、教师调用、环境重构、训练计算或推理实际使用时间；TB2.0 基座分数还标为模型卡来源。", "**审查与模式统计缺少校准**：过程筛选和去污染依赖模型判断；全量行为模式的人工审查规模、一致性、误判率和不确定区间未充分报告。", "**RSI 只有四个单次运行案例**：相同12小时上限下基座常提前结束，实际计算量不同；案例选择与策略随机性限制普遍结论。", "**去污染覆盖边界**：主要检查指令描述，词汇召回可能漏掉低相似度语义复现，也无法排除基座和教师预训练记忆。", "**合成任务真实性边界**：专业材料提供来源，许多事件、接口及家庭规则仍由环境合成；领域覆盖不等于真实部署有效性。", "**复现资源与披露不足**：默认144张H20-141GB、262K序列，未给出总GPU小时、合成总调用成本、各阶段接受率及完整流水线停止规则。"], "cost": "**已报告设置**：LLaMA-Factory 全参数 SFT，3 epochs，AdamW（β₁=0.9、β₂=0.95），峰值学习率 1e−5，cosine，warmup 0.05，weight decay 0.1，gradient clipping 1.0；BF16、ZeRO-3、FlashAttention-2，最大262,144 token，不 packing，每设备batch 1，seed 42。正文默认144张H20-141GB/18节点。评测用8张H20、TP8、262K上下文，另需Harbor、Terminus-2和相应沙箱。\n\n**采集依赖**：DeepSeek-V4-Pro-0813 教师、gpt-5.6-luna（high）过程审查、真实软件栈或合成状态服务、各任务参考解和验证器。论文提供部分审查prompt，但未完整量化任务研究/重构调用预算、最终成功/失败轨迹占比和人工审计。当前工作仅下载论文并生成精读笔记，未下载模型、未训练或运行其任务包。若开展复现，应先核对公开包版本、许可证和运行依赖，并按服务器约定将模型下载至本地公共模型目录后加载。", "experiments_results": "**终端基准**：TB1.0 为 46.3→55.0；TB2.0 为 41.6→55.8；TB2.1 为 46.82→60.67。增量均为绝对百分点。TB2.0 的 41.6 在表1带 †，标为官方模型卡来源，因此其 +14.2 的证据口径需与同协议重新评测区分。\n\n**迁移与推理**：AutomationBench Pass Rate 5.5→17.2、Partial 26.4→49.7；τ² Airline 79.0→84.5、Retail 84.9→87.5；VitaBench 20.5→31.8。MATH-500 96.9→98.9，GSM8K 96.3→97.3，AIME2024 93.3→96.7、AIME2025 86.7→93.3，KOR Cipher 90.1→91.2（表2）。\n\n**补充实验**：100 个抽样任务中，DeepSeek 教师均值 53.5 轮、反馈链 30.3、通过率 50%，GLM-5.2 为 46.1、19.2、44%；相关比较无法识别长链的因果作用。TB2.1 的 16 类中 11 类提升、5 类持平，类别大小为 1—26 题（附录B.1）。RSI 四例最终归一化奖励×100：机器人 14.63→39.72、潮汐 27.41→48.15、2048 37.54→45.25、点云 21.93→48.96；这些奖励分数与成功率具有不同含义（表3、表5）。\n\n**数据集**：任务环境供训练采样，不能将其直接当作独立能力基准；同一环境两条轨迹和父子任务谱系引入相关性。过滤无固定轮数门槛；行为分类共 27 种、五大类，文中未充分说明全量模式标注的一致性及统计误差。\n\n**评测**：TB1.0 为 80 题、TB2.0/2.1 各 89 题，每题独立三次并报告 mean pass@1，每题上限三小时。AutomationBench 报告三次均值；VitaBench 与 τ² 每题四次；通用推理三次，其中 AIME 每年只有 30 题。未给出主要差值的置信区间。VitaBench 与 τ² 的模拟用户及部分裁判采用与训练教师同系列的模型。\n\n**任务级去污染**：比较 1,535 份训练指令与 3,251 个评测实例；完整文本匹配、13/14-token 连续片段、5-gram Jaccard、词/二元词 TF–IDF 与数学 8-gram 共同召回。190 个去重候选对经 gpt-5.6-luna（high）语义审查，0 个判污染或不确定；405 个数学短片段重叠对用于召回，未全部逐一审查。检查对象主要为公开指令，不能排除环境文件、教师记忆或未召回语义改写的重叠。当前精读未核验发布数据及代码的许可证和逐项内容。", "relevance_to_my_work": "按用户指定的**数据合成**领域，本文提供三个可以独立研究的设计点：以独立执行审计环境是否提前完成目标工作；以父解能否覆盖子要求和信息/状态依赖检查扩展质量；以环境证据支持的进展筛选训练过程。这里讨论该领域的一般研究意义，未绑定或改写现有具体研究项目。\n\n建议把“challenge gap”操作化为**预期工作项→公开可发现依据→实际执行证据→未执行原因→重构措施→再挑战结果**，允许高效替代解。对新任务先审计原子评分条件与公开契约，再在固定种子池、教师、token和预算下比较原始环境、仅重构、仅扩展及两者组合。增加长度匹配的无依赖扩展与步骤打乱对照，检验跨阶段依赖是否提供超出长度的收益。以上是由论文启发的实验设计，作者未执行这些完整对照。\n\n过程筛选可比较成功样本、成功加可靠失败过程、未筛选全集，测量最终任务收益与错误行为复现率；验证器可加入人工审计、合法替代解和故意错误产物测试。成本应同时报告每个合格环境、每百万训练token与每个下游提升点的合成/训练开销，并在与训练种子和扩展谱系分离的测试任务上验证迁移。", "custom_notes": "研究领域：**数据合成**（用户指定）。精读版本：arXiv:2610.13166v2，2026-10-20。依据Python/PyMuPDF抽取文本阅读全部正文与方法附录；未查看论文图片。初始抽取存在父章节遗漏、页级重叠和8K字符截断，已使用本地文本抽取脚本按完整目录及精确标题边界修正，保留原始抽取备份。无Zotero高亮，因此不生成引文摘录。证据标签区分作者报告、支持性推断与待验证机制。", "guide_background": "终端智能体要完成真实工作，需要把探索、诊断、实现、检验和交付连接起来。已有环境合成能扩大任务覆盖，但构造者容易预装核心求解器、提供已经判定好的证据，或让故障分支在运行时无法触发。这样得到的任务文字可以很复杂，实际轨迹却绕过了预期训练的工作。本文关注如何在合成环境中保留**需要智能体亲自完成的实质工作**，并让这些工作跨阶段衔接。", "guide_question": "如何自动构造可执行、可验证的终端任务，使独立求解者实际经历目标行为，并通过同一目标下的连续扩展，形成可用于 SFT 的高质量长程轨迹？关键是让**后续决策依赖之前取得的证据、状态和成果**，同时保持公开要求与私有评分一致。", "guide_approach": "1. **先定义任务契约，再联合构造环境**：从文档、仓库、问题报告等专业材料形成任务种子，同时生成指令、环境、参考解、私有验证器与执行配置。求解者只能接触公开指令和环境；评分条件必须能由公开要求及可发现证据推出。\n2. **用独立试做定位被预先完成的工作**：未参与构造的 Challenger 实际求解，审查者结合轨迹和评分识别泄漏、运行缺陷与 horizon gap。随后重构初始状态、工具和对象关系，再交给新的独立执行检验。\n3. **沿同一目标扩展有依赖关系的新要求**：从角色、机制、证据和方法四个方向延展任务，并通过探索所得信息、动作反馈和实例变化连接前后阶段。旧参考解应无法直接满足新增要求，子任务同时更新指令、参考解和验证器。\n4. **筛选有学习价值的过程并进行 SFT**：每个环境采集两条教师轨迹，按轨迹有效性、环境证据驱动的进展和多轮训练价值筛选。允许保留有可靠诊断和恢复过程的未完成样本，再微调 Qwen3.5 系列模型。", "guide_findings": "1. **产出约 3K 条长程训练轨迹**：1,535 个环境覆盖 25 个专业领域，过滤后保留 2,852 条；平均 52.8 轮、P90 为 98 轮，连续反馈链中位数 25 轮。作者报告每条平均包含 8.6 种核心行为模式（§3）。\n2. **终端能力和跨场景表现同时提高**：Qwen3.5-27B 的 Terminal-Bench 2.1 从 46.82 升至 60.67，增加 13.85 个百分点；AutomationBench 全断言通过率从 5.5 升至 17.2，VitaBench 从 20.5 升至 31.8（表2）。\n3. **收益延伸到不同模型规模**：35B-A3B 与 122B-A10B 在 Terminal-Bench 2.1 分别提高 13.11、14.98 个百分点。1K、2K 到完整 2,852 条数据的分数为 57.30、58.43、60.67，支持该数据在已测试区间的扩量价值（§4.3，图5—6文字）。\n4. **四个长时案例展示了实验、回退与交付行为**：相同 12 小时上限下，最终隐藏归一化得分均提高；点云任务为 21.93→48.96。这些是每模型每案例一次运行的过程证据，尚不足以估计稳定的长期成功率（附录C，表5）。", "guide_insight": "数据合成可以把**任务环境本身作为可迭代的设计对象**：先观察智能体如何实际完成工作，再修复预装答案、未触发故障和已经给定的判断，让反馈真正影响后续行动。整体 SFT 结果支持这批数据有训练价值；“跨阶段行为连接造成收益”仍属于有案例支撑的机制解释，需要与轨迹长度、教师能力、覆盖范围及训练 token 分开检验。", "guide_limitations": "缺少移除独立挑战、重构或渐进扩展的直接模块消融，也缺少固定训练 token 和总成本的短长轨迹对照。数据筛选与去污染依赖模型审查，未给出人工一致性校准；RSI 四例均仅一次运行。**少量轨迹不代表低算力成本**：正文报告默认使用 144 张 H20-141GB，最大序列长度为 262,144 token。", "paper_type": ["method", "dataset"], "keywords": ["数据合成", "智能体训练数据", "长程任务", "环境重构", "独立挑战", "渐进任务扩展", "过程筛选", "监督微调"], "research_question": "给定真实专业工作需求，怎样合成任务包及其执行分布，使智能体必须完成探索、判断、实现和验证，并让新阶段利用先前进展？研究目标包含**环境是否保留目标工作**与**轨迹是否具有跨阶段依赖**，最终用学生模型的下游表现验证训练用途。", "data_or_materials": "研究代理调查文档、代码仓库、issue 和专业资料，随后合成受控环境；这与使用真实未改动工作现场的数据采集应区分。共有 **1,535 个任务环境、25 个专业领域**，包括软件、基础设施、物理、天文、财务等。DeepSeek-V4-Pro-0813 在 Terminus-2 下每任务采集两条，按文中数量推算初始 3,070 条、保留 2,852 条，约 92.9%。后两项是算术推导，论文未给出按失败原因和领域分层的保留统计。", "interpretation": "**直接证据**支持这一数据与SFT组合能改善所测模型在多个基准上的分数；重构与扩展案例也具体展示了环境如何让数值建模、证据比较和跨系统协调重新进入求解过程。由此可以合理推断，执行轨迹有助于发现仅看任务文本难以发现的合成缺陷。对于跨阶段行为连接究竟贡献多少，以及是否优于等token的短轨迹训练，现有结果仍缺少识别。训练集规模小、任务长和最终收益同时出现，不能直接推出单位计算效率或通用长期研究可靠性。", "evidence_map": [{"claim": "任务包分公开求解视图与内部参考/验证材料，并约束评分语义来自公开信息。", "evidence": "§2.1—2.2，公式1与3，pp.3—4。", "status": "reported"}, {"claim": "独立挑战用于定位构造提前完成的工作，并驱动环境重构。", "evidence": "§2.2，公式4—7；附录H.1—H.3，pp.3—5、31—34。", "status": "reported"}, {"claim": "渐进扩展沿同一目标建立新增要求与已有证据/状态的依赖。", "evidence": "§2.3，公式8；附录I，pp.5、34—36。", "status": "reported"}, {"claim": "数据包含1535环境、2852轨迹，平均52.8轮，反馈链中位数25轮。", "evidence": "§3，pp.5—6；图4对应的Python抽取文字。", "status": "reported"}, {"claim": "初始轨迹3070条，按文中数量计算保留率约92.9%。", "evidence": "§3：每个1535任务采两条，最终2852条；2852/(1535×2)。", "status": "supported_inference"}, {"claim": "过程筛选不按最终成功或固定轮数决定去留，可以保留可靠未完成轨迹。", "evidence": "附录F及J.1，pp.28—30、36—38。", "status": "reported"}, {"claim": "TB2.1提高13.85个百分点，AutomationBench通过率提高11.7个百分点。", "evidence": "§4.2，表2，p.8；评测协议附录A.2。", "status": "reported"}, {"claim": "TB2.0的41.6基座分数在表1标为官方模型卡来源。", "evidence": "表1及其†脚注，p.7。", "status": "reported"}, {"claim": "更少轨迹数不能直接证明更低计算开销。", "evidence": "表1、附录B.2只对轨迹数和分数；§4.1与表4报告262K序列和默认144张H20。", "status": "supported_inference"}, {"claim": "四个RSI案例的最终奖励均提高，但每案例每模型只有一次运行。", "evidence": "附录C，表5及说明，pp.18—24。", "status": "reported"}, {"claim": "指令级去污染在190个召回候选中未发现污染。", "evidence": "附录G，表8—9及附录J.2，pp.29—31、38—39。", "status": "reported"}, {"claim": "执行闭环能帮助发现任务文本不显露的捷径和未触发分支。", "evidence": "附录H：预装校准求解器、RabbitMQ故障路径、福利材料预验证三例。", "status": "supported_inference"}, {"claim": "跨阶段依赖可能贡献超出轨迹长度本身的训练收益。", "evidence": "§2.3的设计动机、附录E/H/I的案例；缺少等token、等长度训练对照。", "status": "speculation"}], "uncertainties": ["独立重构和渐进扩展分别对下游收益贡献多少？§4.3未给出移除模块的训练结果。", "每个合格环境需要多少研究、构造和再挑战调用？重构轮数、停止条件、总费用及总体失败率未系统报告。", "1,535环境中父子扩展谱系的完整规模、跨谱系去重与新增行为统计未充分披露。", "过程保留样本中最终失败、错误完成声明和局部错误的比例，以及各类样本对SFT的净作用未说明。", "27种行为的全量标注流程、一致性和“平均8.6种”对不同审查模型的稳定性未充分报告。", "主要分数差值的置信区间、训练随机种子敏感性、RSI多次运行分布均缺失。", "公开发布包的实际完整性、可执行性、许可证和版本与本文设置的一致性，本次未独立核验。", "去污染对环境附件、参考解、工具实现及预训练/教师记忆的覆盖不明。", "未证明式3的公开语义约束在所有生成任务中都成立，也未给出验证器误判/漏判率。"], "open_questions": ["如何以可审计的工作依赖图度量horizon gap，并区分预先完成工作、合法高效解和教师能力不足？", "固定训练token和教师预算时，重构、渐进扩展及其交互作用各能带来多少收益？", "将依赖扩展与长度匹配的独立子任务拼接比较，能否识别跨阶段反馈的额外价值？", "可靠失败轨迹对长程SFT的收益，能否用最终正确率、恢复成功率与错误行为模仿率共同量化？", "怎样用人工校准、合法替代解和故意错误产物审计，验证自动评分与过程筛选的可靠性？", "引入强制同计算预算或禁止提前退出的RSI对照后，持续改进与最终交付收益是否仍成立？"], "key_quotes": [], "module_notes": {}, "schema_version": 4, "zotero_key": "local-82765849", "sections": [{"heading": "Abstract", "number": "", "page": 1, "level": 2, "summary": "提出以保留和连接**长程行为模式**为目标的自动数据引擎，结合挑战重构与渐进扩展，用约1.5K环境训练27B模型，并报告12基准和长时案例的提升。", "analysis": "摘要建立了环境设计、训练数据和模型收益的链条；模块机制仍需正文实验识别，不能从整体提升直接推定每一环有效。"}, {"heading": "Introduction", "number": "1", "page": 1, "level": 2, "summary": "指出复杂任务可能被预装材料或工具简化，短轨迹难展示跨阶段修订和交付；提出**保留实质工作**与连接不同阶段两个挑战。", "analysis": "动机把任务描述复杂度与实际执行工作区分开，构成可检验的合成问题；缺少工作保留率的统一量化定义。"}, {"heading": "Method", "number": "2", "page": 3, "level": 2, "summary": "概述**挑战驱动重构→同目标扩展**两阶段，从真实专业需求建立可执行环境，再通过执行证据迭代。", "analysis": "本节是方法总述；独立挑战负责发现现有环境中的工作缺口，渐进扩展负责增加依赖既有成果的新工作。"}, {"heading": "Task Formulation and Design Objective", "number": "2.1", "page": 3, "level": 3, "summary": "定义五元任务包与公开视图，只开放**指令和环境**；目标行为涉及探索、诊断、建设、验证及协调。", "analysis": "信息隔离使试做者更接近真实求解条件；还需审计文件、进程和工具输出，防止内部参考材料通过环境泄漏。"}, {"heading": "Challenge-Guided Long-Horizon Synthesis", "number": "2.2", "page": 3, "level": 3, "summary": "Planner依据覆盖缺口规划研究，研究代理收集专业材料，构造代理联合生成任务包；独立执行与horizon gap分析定位**已被提前完成的工作**，重构后再挑战。", "analysis": "式3约束私有评分由公开语义支持，能减少隐藏要求。重构应以实际缺失工作为依据，避免惩罚高效合法解；本文用案例展示闭环，未给出全量成功率与模块消融。"}, {"heading": "Progressive Horizon Expansion", "number": "2.3", "page": 5, "level": 3, "summary": "沿角色、机制、证据、方法四轴扩展；用探索信息、动作反馈、实例变化建立**前后阶段依赖**，并同步更新任务全部组件。", "analysis": "检查父解无法直接覆盖新增要求比增加文本长度更具体；还需长度匹配无依赖对照，以及独立审计新增评分是否可由公开信息发现。"}, {"heading": "Analysis of Synthesized Data", "number": "3", "page": 5, "level": 2, "summary": "构建1,535环境、2,852保留轨迹，覆盖25领域；均值52.8轮、P90为98、连续反馈链中位数25，并报告平均**8.6种核心模式**。", "analysis": "各方法300任务用相同教师协议比较轮数，改善了描述公平性；统计仍受任务池、工具反馈格式与模式标注影响，长度和模式多样性尚未与训练收益分离。"}, {"heading": "Experiments", "number": "4", "page": 6, "level": 2, "summary": "本节为**实验总标题**，具体评测设置、结果、规模分析和长时应用由4.1—4.4展开。", "analysis": "标题本身无独立实验内容；判断证据需落到下属协议、表格和单次案例范围。"}, {"heading": "Experimental Setup", "number": "4.1", "page": 6, "level": 3, "summary": "评测终端、生产型智能体与通用推理共12基准；27B全参数SFT采用262K序列、3epochs，默认**144张H20-141GB**。表1列出不同数据和基座的终端结果。", "analysis": "同基座和相同harness的比较最有解释力；跨方法表同时混合架构、数据量、训练方法与模型卡分数，不能作为固定资源消融。TB2.0基座41.6带†需单独标注。"}, {"heading": "Main Results", "number": "4.2", "page": 7, "level": 3, "summary": "报告12基准全部改善；**TB2.1为46.82→60.67**，AutomationBench通过率5.5→17.2，VitaBench20.5→31.8，五项推理也有提升。", "analysis": "这些数值是整体训练方案的结果，差值按绝对百分点解释。没有置信区间；部分小型推理集的提升需要结合题数与重复次数评估。"}, {"heading": "Analysis and Ablation Studies", "number": "4.3", "page": 8, "level": 3, "summary": "100任务比较两教师；DeepSeek均值53.5轮、反馈链30.3、通过率50%，均高于GLM相应值；另报告**跨规模与1K—3K扩量**收益。", "analysis": "教师能力、链长和成功率共同变化，不能识别因果；本节虽称ablation，未报告去掉挑战、重构、扩展或过程筛选的结果。"}, {"heading": "Long-Horizon Task Applications", "number": "4.4", "page": 8, "level": 3, "summary": "同12小时上限比较RSI任务；点云案例从单参考视图代理分数转向**留一视图诊断**，修订对齐和覆盖策略，最终归一化奖励0.2193→0.4896。", "analysis": "正文把差值写作27.03%，附录给出奖励×100口径，应理解为增加27.03个归一化分数点。结果展示修订评价方式的案例，无法代表跨任务稳定成功率。"}, {"heading": "Related Work", "number": "5", "page": 9, "level": 2, "summary": "区分长程执行harness、终端环境合成与本文关注的**跨阶段行为经验**，将方法放在覆盖、复杂化和行为连接的研究谱系中。", "analysis": "文献定位有助于确定待检验变量；本文未按同基座、同token重训已有合成方法，相关工作对照仍以汇总表为主。"}, {"heading": "Conclusion", "number": "6", "page": 10, "level": 2, "summary": "总结挑战重构和渐进扩展对整体训练的价值；同时提供**AI使用、伦理与复现声明**，指向附录中的协议、筛选和去污染。", "analysis": "声明说明作者使用生成模型构造环境与轨迹并人工审阅内容。复现声明提供方法入口，尚不能替代总成本、完整代码可运行性和许可证核验。"}, {"heading": "Implementation Details", "number": "A", "page": 16, "level": 2, "summary": "附录A为**实现细节总标题**，下设训练与评测协议。", "analysis": "将训练和评测参数分开读取有助于防止把评测8卡设置误认为训练资源。"}, {"heading": "Training Details", "number": "A.1", "page": 16, "level": 3, "summary": "三种模型共用训练配方：全参SFT、AdamW、1e−5、cosine、5%warmup、3epochs、BF16、ZeRO-3、FlashAttention-2、262K序列、**不packing**、seed42。", "analysis": "参数细节支持复现；缺少完整有效batch、GPU小时和显存利用率，使计算效率比较仍不充分。"}, {"heading": "Evaluation Protocols", "number": "A.2", "page": 16, "level": 3, "summary": "明确各基准任务数、harness、采样温度、重试与重复次数；TB每题三次及三小时上限，Vita/τ²每题四次，推理三次。评测用**8张H20、TP8**。", "analysis": "技术重试与独立评测次数分开描述较清楚。Vita/τ²的模拟用户和部分裁判与训练教师同系列，需关注模型偏好相关性；主要结果仍缺少区间估计。"}, {"heading": "Additional Experimental Analysis", "number": "B", "page": 17, "level": 2, "summary": "本附录组织**任务类别表现与轨迹数效率**两类补充分析。", "analysis": "这里无新增独立实验结论，证据由B.1和B.2承担。"}, {"heading": "Performance across Task Categories", "number": "B.1", "page": 17, "level": 3, "summary": "TB2.1的16类别中11类提升、5类持平；调试、数据科学、机器学习分别增加**46.7、25.0、22.2个百分点**。", "analysis": "多个类别仅1—5题，大百分点变化可能由少量题决定；分类结果支持覆盖广度，不能稳定估计每个专业领域的真实效果。"}, {"heading": "Data Efficiency", "number": "B.2", "page": 18, "level": 3, "summary": "约3K轨迹达到TB2.0的55.8，比同基座同Terminus-2的Terminal-Universe约32K轨迹高**3.0个百分点**。", "analysis": "按轨迹数量看有吸引力；不同平均长度、教师成本、合成重构与训练算力未匹配，单位token和总费用效率仍未知。"}, {"heading": "Additional Long-Horizon Task Applications", "number": "C", "page": 18, "level": 2, "summary": "四个RSI案例均给12小时上限，每模型每例一次，隐藏评分只在最后执行；表5分别报告最终奖励与**实际研究时长**。", "analysis": "单次运行、可提前结束和任务选择限制统计外推。相同时间上限无法保证实际计算量一致；奖励为归一化优化分数，不能当作成功率。"}, {"heading": "Warehouse Robot Routing and Macro Optimization", "number": "C.1", "page": 19, "level": 3, "summary": "仓储机器人联合优化路线与宏压缩，改进模型保留有效压缩与路线选择；基座中间成本286.05，提交却退化到466.35，改进模型提交281.11，隐藏奖励**14.63→39.72**。", "analysis": "此例突出最终交付保留进展的重要性。两模型都搜索较久，但最终版本选择与算法修改同时改变，无法独立估计哪类训练行为造成收益。"}, {"heading": "Tidal Seabed Friction Field Inversion", "number": "C.2", "page": 20, "level": 3, "summary": "潮汐反演从稀疏含异常测点估计摩擦场；改进模型比较空间基、鲁棒损失和正则，隐藏潮位RMSE **0.021873→0.009386**，归一化奖励27.41→48.15。", "analysis": "评价对象是独立测点的潮位误差，无法据此断言真实摩擦场已准确恢复。仅八个隐藏盆地且一次研究运行，泛化范围有限；示例盆地按最大相对改善事后挑选。"}, {"heading": "2048 Strategy Optimization", "number": "C.3", "page": 21, "level": 3, "summary": "2048比较expectimax、启发式与缓存策略，改进模型纠正无界缓存并回退退化候选；隐藏16seed平均游戏分**23,183.75→38,626.25**，奖励37.54→45.25。", "analysis": "两政策隐藏运行有效率均1，分差主要体现策略质量。公开仅8seed，存在调参过拟合风险；单次研究轨迹仍难分离随机性与训练效果。"}, {"heading": "Multi-View Point-Cloud Fusion", "number": "C.4", "page": 24, "level": 3, "summary": "点云融合要求配准、抑噪与覆盖；公共自检只验接口。改进模型发现单参考视图代理指标偏差，用**留一视图诊断**改进融合；隐藏均值F-score48.04→77.68。", "analysis": "原始F-score与校准奖励21.93→48.96是两种指标。该案例直接说明接口合规和自设代理高分均不能确认任务质量，复现时应保留独立的完整场景评价。"}, {"heading": "Professional Domain Coverage", "number": "D", "page": 24, "level": 2, "summary": "1,535任务分属25主领域，含教育、农业、医疗、财务和科学；强调终端作为**统一交互接口**，不限定任务行业。", "analysis": "领域标签说明题材范围；合成规则和模拟服务仍需与真实业务有效性区分。未提供每个领域的训练收益或可靠性估计。"}, {"heading": "Agentic Behavioral Patterns", "number": "E", "page": 25, "level": 2, "summary": "附录E为**行为模式定义与组织方式**总标题。", "analysis": "具体定义和证据位于E.1—E.2；分类标签本身不足以证明训练机制。"}, {"heading": "Definitions and Taxonomy", "number": "E.1", "page": 25, "level": 3, "summary": "将行为模式定义为围绕目标连接行动、观察和后续决策的结构，27种分五类；类别可共现，**不构成固定执行阶段**。", "analysis": "定义比命令类型更贴近过程质量，但模式边界存在判断空间；缺少人工一致性和自动标注误差，限制统计解释。"}, {"heading": "Organization of Behavioral Patterns within Trajectories", "number": "E.2", "page": 25, "level": 3, "summary": "用TLS网关、合成中子衍射和护理排班三条轨迹展示多模式相互连接；表6—7列出全部定义，包括**独立交叉检验、改动后复验和交付核对**。", "analysis": "作者明确这三例不估计模式频率或时长。TLS仅见局部回归通过，中子拟合未见独立重拟合结果，排班SQL与验证器共用数据库；多路径检查的独立性需要逐项审计。"}, {"heading": "Trajectory Filtering Criteria", "number": "F", "page": 28, "level": 2, "summary": "审查模型读取完整轨迹，不额外接收最终reward；按**有效性、环境证据驱动进展、多轮训练价值**筛选，允许可靠失败、局部错误和恢复过程。", "analysis": "这为保留诊断经验提供可复用原则；没有量化误保/误拒、失败样本占比或对SFT的净贡献。隐藏reward不等于轨迹中完全没有可推知的结果线索。"}, {"heading": "Detailed Benchmark Decontamination", "number": "G", "page": 30, "level": 2, "summary": "描述训练任务与评测实例的**指令级去污染流程**，联合精确片段、近重复召回和语义审查。", "analysis": "该审计评估可检出的任务复用风险，其结论范围取决于检索召回及比较字段。"}, {"heading": "Comparison Corpora", "number": "G.1", "page": 30, "level": 3, "summary": "以完整instruction.md对比12组共3,251评测实例，保留逐步披露情境，不含参考答案和私有评分；**不摘要、不截断**。", "analysis": "避免摘要丢失独特约束；仍未比较环境附件与工具实现，也不能检验教师或基座的预训练污染。"}, {"heading": "Text Overlap and Near-Duplicate Retrieval", "number": "G.2", "page": 30, "level": 3, "summary": "NFKC及小写规范化后做全串、13/14-token重合、5-gram Jaccard与TF–IDF；数学8-gram用于补充召回，JSD仅刻画**词分布差异**。", "analysis": "明确短数学片段和分布相似都不直接判污染，口径合理；符号改写、结构复现及低词汇相似复用仍可能漏检。"}, {"heading": "Semantic Assessment of Candidate Pairs", "number": "G.3", "page": 30, "level": 3, "summary": "每基准合并精确匹配、TF–IDF前10、Jaccard前5、数学重合前5，去重后模型审查目标、初始状态、独特约束与转换；给出**污染/清洁/不确定**。", "analysis": "多检索器提高候选多样性，但固定top-k仍限制召回。需要人工标注集或注入改写污染来评估漏检，论文未报告这类校准。"}, {"heading": "Decontamination Results", "number": "G.4", "page": 31, "level": 3, "summary": "没有全串或13/14-token重合；数学8-gram共405对短片段重合，190候选经语义审查均清洁，**1,535任务全部保留**。", "analysis": "结果支持该流程未发现任务复用。190候选全清洁不意味着对其余约499万训练—评测组合或底层附件的完整无污染保证。"}, {"heading": "Case Studies of Challenge-Guided Reconstruction", "number": "H", "page": 31, "level": 2, "summary": "选数值校准、分布式恢复与福利管理三例，追踪**初始试做→重构→再次独立试做**。", "analysis": "案例展示失败合成的具体原因和修复方向，但属于定性选择，不能估计该类缺陷的总体出现率。"}, {"heading": "Radio-Interferometric Calibration", "number": "H.1", "page": 32, "level": 3, "summary": "初始校准工具内置拟合例程，挑战者可直接调用；重构移除核心拟合并公开必要轴/表格式，再挑战实现拟合、按残差修订并检验holdout，最终**通过验证器**。", "analysis": "恢复了数值建模与实现需求；重构后RMS数值属于同一新任务的分组结果，不能作为旧新版本能力增益或纯模块消融。"}, {"heading": "RabbitMQ Recovery Across Broker and Application State", "number": "H.2", "page": 32, "level": 3, "summary": "RabbitMQ经历5轮重构、6次挑战；预制heal与自动重试被移除，但故障分支仍曾未触发，最终将真实AMQP路径与分区连接，恢复缺失前驱事件后**216条outbox均确认**。", "analysis": "最有诊断价值的证据是中间失败：规格写有应用恢复分支，实际执行却可能绕过。应在合成质控中验证故障触发、可观察后果和下游依赖，而非只审任务文本。"}, {"heading": "Family Enrollment Changes and Payroll Reconciliation", "number": "H.3", "page": 33, "level": 3, "summary": "福利变更经历4轮重构、5次挑战，从固定更新扩展到冲突文档、资格判断及版本化跨系统同步；最终按证据修正人员资格并完成**312美元薪资调整**。", "analysis": "真实业务逻辑由合成家庭和规则模拟。新轨迹表明文档真实性、事件资格和更新一致性分别约束决策，案例内通过不能等同于实际福利政策适用性。"}, {"heading": "Qualitative Analysis of Progressive Task Evolution", "number": "I", "page": 34, "level": 2, "summary": "分析两个初始任务的三条扩展谱系，逐代说明旧解不足、新工作和新增依赖，考察**同目标演化**的具体含义。", "analysis": "用父子对照呈现扩展内容比只报更长轨迹更清楚；还需全量谱系统计和扩展前后独立执行的量化比较。"}, {"heading": "Two Branches from the Same Photo-Library Task", "number": "I.1", "page": 34, "level": 3, "summary": "同一PhotoPrism父任务生成两条三代分支：一条处理双侧编辑、归档恢复、分组与主版本；另一条由媒体证据恢复身份，再跨系统合并并处理**字节已变的对应文件**。", "analysis": "新增要求依赖身份推断和三方状态比较，提供避免独立子题拼接的实例。文件摘要不足以判定语义身份；原生索引和重扫验证最终稳定状态。"}, {"heading": "Hotel Event Scheduling", "number": "I.2", "page": 35, "level": 3, "summary": "十项活动保持不变，依次增加参会者路径、场馆事故恢复和设备物流；设备17:25才可用导致活动由17:15改至**17:30**并更换方案。", "analysis": "工作量来自资源、地点、时间的耦合，而非活动数量增加。失败候选的反馈改变后续计划，适合用于设计可验证的跨对象依赖。"}, {"heading": "Prompt Templates", "number": "J", "page": 36, "level": 2, "summary": "附录J提供**过程筛选与污染审查prompt**。", "analysis": "模板提高部分审查的可复现性；其余研究、构造、重构和扩展prompt及运行预算仍需公开包核验。"}, {"heading": "Trajectory Filtering Prompt", "number": "J.1", "page": 36, "level": 3, "summary": "要求完整读取轨迹、将思考与实际执行区分，按三维度输出KEEP/DROP及2—4条证据；允许**未完成但可靠的过程**与局部错误恢复。", "analysis": "该模板避免只按成功或轮数筛选，但允许部分孤立错误完成声明的样本，可能产生监督噪声；需以人工校准和下游训练消融评估。"}, {"heading": "Benchmark Decontamination Prompt", "number": "J.2", "page": 38, "level": 3, "summary": "比较候选对的完整任务描述，以核心目标、状态、独特约束和解法结构判断，输出**CLEAN/CONTAMINATED/UNCERTAIN**并记录证据。", "analysis": "检索分数仅作召回，语义裁决单独说明，逻辑清楚。原文要求完整JSONL与原子改名，可防审查记录丢失；仍需评估审查模型对改名复现的敏感度。"}], "generated_at": "2026-11-01T18:50:29+0800", "research_context_id": null, "_field_updated_at": {}, "built_at": "2026-11-01T18:51:57+0800"};
+
+  // ── prose (multi-paragraph) fields ──
+  // These render as <p> blocks so \n\n in the text shows as real paragraphs.
+  // writeProse/readProse keep the round-trip lossless (text ⇄ <p> DOM).
+  var PROSE_FIELDS = {
+    objective:1, problem_landscape:1, approach:1, impact:1,
+    cost:1, experiments_results:1, relevance_to_my_work:1, custom_notes:1,
+    guide_background:1, guide_question:1, guide_approach:1,
+    guide_findings:1, guide_insight:1, guide_limitations:1
+  };
+  function isProseField(f){ return PROSE_FIELDS[f] === 1; }
+  // Lightweight, safe inline markdown. HTML is escaped first so raw tags can't
+  // inject; LaTeX delimiters ($…$, \(…\), $$…$$, \[…\]) survive untouched for
+  // MathJax to typeset afterwards. Works the same in every prose module,
+  // section summary/analysis, and quote block.
+  function mdInline(s){
+    s = String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic uses * only (not _), because _ is ubiquitous in LaTeX
+    // subscripts (x_i, _{i=1}) and would otherwise be mangled.
+    s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)/g, function(full, label, url){
+      var scheme = '';
+      var match = String(url).match(/^([a-z][a-z0-9+.-]*):/i);
+      scheme = match ? match[1].toLowerCase()+':' : '';
+      if (scheme && ['http:','https:','mailto:'].indexOf(scheme) < 0) return full;
+      var safeUrl = url.replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/[\r\n]/g,'');
+      return '<a href="'+safeUrl+'" target="_blank" rel="noopener noreferrer">'+label+'</a>';
+    });
+    return s;
+  }
+  // Display renderer: markdown + leaves math for MathJax. Stores raw source in
+  // data-tex so a typeset <mjx-container> never corrupts what gets saved.
+  function writeProse(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var lines = para.split('\n');
+      var ordered = lines.map(function(ln){ return ln.match(/^\s*\d+[.)]\s+(.+?)\s*$/); });
+      var unordered = lines.map(function(ln){ return ln.match(/^\s*[-*+]\s+(.+?)\s*$/); });
+      if (lines.length && ordered.every(function(m){ return m; })) {
+        var ol = document.createElement('ol'); ol.className = 'markdown-list';
+        ordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ol.appendChild(li); });
+        el.appendChild(ol); return;
+      }
+      if (lines.length && unordered.every(function(m){ return m; })) {
+        var ul = document.createElement('ul'); ul.className = 'markdown-list';
+        unordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ul.appendChild(li); });
+        el.appendChild(ul); return;
+      }
+      var p = document.createElement('p');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        var span = document.createElement('span');
+        span.innerHTML = mdInline(ln);
+        while (span.firstChild) p.appendChild(span.firstChild);
+      });
+      el.appendChild(p);
+    });
+    // leave el empty when there is no content so the CSS placeholder shows
+  }
+  // Edit renderer: raw source (markdown + LaTeX) as plain, editable text.
+  function showSource(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var p = document.createElement('p');
+      var lines = para.split('\n');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        p.appendChild(document.createTextNode(ln));
+      });
+      el.appendChild(p);
+    });
+  }
+  function readProse(el){
+    if (!el) return '';
+    // Prefer the preserved raw source (accurate even after MathJax typeset).
+    if (el.dataset.tex != null) {
+      return el.dataset.tex.replace(/\s+$/,'').trim();
+    }
+    var ps = el.querySelectorAll(':scope > p');
+    if (ps.length){
+      return Array.prototype.map.call(ps, function(p){
+        return p.innerText.replace(/\u00a0/g,' ').replace(/\s+$/,'').trim();
+      }).filter(function(t){ return t.length; }).join('\n\n');
+    }
+    return el.innerText.trim();
+  }
+
+  // ── path helpers ──
+  function getByPath(o, p){ return p.split(".").reduce(function(o,k){return o==null?o:o[k];},o); }
+  function setByPath(o, p, v){ var pts=p.split("."); var cur=o;
+    for(var i=0;i<pts.length-1;i++){var k=pts[i],nx=pts[i+1]; if(cur[k]==null)cur[k]=/^\d+$/.test(nx)?[]:{}; cur=cur[k];}
+    cur[pts[pts.length-1]]=v; }
+  function isListField(f){ return Array.isArray(getByPath(INITIAL,f)); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function topOf(el){ return el.getBoundingClientRect().top + window.scrollY; }
+
+  function collectEdits(statusOverride){
+    var edits = {};
+    var fieldTimes = clone(INITIAL._field_updated_at || {});
+    var nowStamp = new Date().toISOString();
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f = el.dataset.field;
+      if (f.indexOf('key_quotes.')===0) return;
+      var nextValue;
+      if (isListField(f)) {
+        var items=[]; el.querySelectorAll('li').forEach(function(li){ var t=li.innerText.trim(); if(t)items.push(t); });
+        nextValue=items; setByPath(edits,f,items);
+      } else if (isProseField(f)) {
+        nextValue=readProse(el); setByPath(edits,f,nextValue);
+      } else { nextValue=el.innerText.trim(); setByPath(edits,f,nextValue); }
+      if(JSON.stringify(getByPath(INITIAL,f))!==JSON.stringify(nextValue)) fieldTimes[f]=nowStamp;
+    });
+    var quotes=[];
+    document.querySelectorAll('.quote-block').forEach(function(b){
+      var tEl=b.querySelector('.quote-text'), nEl=b.querySelector('.quote-note'), m=b.querySelector('.quote-meta');
+      var qt = (tEl && tEl.dataset.tex != null) ? tEl.dataset.tex.trim() : (tEl ? tEl.innerText.trim() : "");
+      var qn = (nEl && nEl.dataset.tex != null) ? nEl.dataset.tex.trim() : (nEl ? nEl.innerText.trim() : "");
+      quotes.push({text:qt,note:qn,page:m?m.dataset.page:"",color:m?m.dataset.color:""});
+    });
+    if (quotes.length || (INITIAL.key_quotes&&INITIAL.key_quotes.length)) edits.key_quotes=quotes;
+    if(JSON.stringify(INITIAL.key_quotes||[])!==JSON.stringify(quotes)) fieldTimes.key_quotes=nowStamp;
+    var secArr = collectSections();
+    if (secArr.length || (INITIAL.sections&&INITIAL.sections.length)) edits.sections = secArr;
+    if(JSON.stringify(INITIAL.sections||[])!==JSON.stringify(secArr)) fieldTimes.sections=nowStamp;
+    Object.keys(INITIAL).forEach(function(k){ if(!(k in edits)) edits[k]=INITIAL[k]; });
+    edits.module_notes = collectModuleNotes();   // per-module marginalia
+    edits.status = statusOverride || currentStatus;
+    edits._field_updated_at = fieldTimes;
+    edits.exported_at = new Date().toISOString();
+    edits.zotero_key = ZKEY;
+    edits.schema_version = INITIAL.schema_version || 3;
+    return edits;
+  }
+
+  var saveDot = document.getElementById('saveDot');
+  function markDirty(){ saveDot.className='save-dot is-dirty'; }
+  function markSaved(){ saveDot.className='save-dot is-saved'; setTimeout(function(){saveDot.className='save-dot';},1200); }
+  function markSynced(){ saveDot.className='save-dot is-synced'; }
+
+  // ── localStorage save ──
+  function saveToLS(statusOverride){
+    var edits = collectEdits(statusOverride);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(edits)); } catch(e){}
+    return edits;
+  }
+  function saveEdits(){
+    var edits = saveToLS();
+    if (dirHandle) { writeToFile(edits); } else { markSaved(); }
+  }
+  var saveTimer=null;
+  document.addEventListener('input', function(e){
+    var t=e.target;
+    if (t && t.classList && t.classList.contains('note-area')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800); updateNotesCount(); return;
+    }
+    if (t && t.hasAttribute && t.hasAttribute('contenteditable')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800);
+    }
+  });
+  document.addEventListener('keydown', function(e){ if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveEdits();} });
+
+  // ── File System Access API: sync to folder ──
+  var dirHandle = null;
+  var IDB_NAME = 'litreader-fs', IDB_STORE = 'handles';
+
+  function idbGet(key){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) { resolve(null); return; }
+          var tx = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(key);
+          tx.onsuccess = function(){ resolve(tx.result||null); };
+          tx.onerror = function(){ resolve(null); };
+        };
+        r.onerror = function(){ resolve(null); };
+      } catch(e){ resolve(null); }
+    });
+  }
+  function idbSet(key, val){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result; var tx = db.transaction(IDB_STORE,'readwrite');
+          tx.objectStore(IDB_STORE).put(val, key); tx.oncomplete=function(){resolve(true);}; tx.onerror=function(){resolve(false);};
+        };
+      } catch(e){ resolve(false); }
+    });
+  }
+  function isFsApi(){ return 'showDirectoryPicker' in window; }
+
+  async function writeToFile(edits){
+    if (!dirHandle) return;
+    try {
+      var target = dirHandle;
+      try { target = await dirHandle.getDirectoryHandle('papers', {create:false}); } catch(e){ target = dirHandle; }
+      var fh = await target.getFileHandle(ZKEY + '.edits.json', {create:true});
+      var w = await fh.createWritable();
+      await w.write(JSON.stringify(edits, null, 2));
+      await w.close();
+      markSynced();
+    } catch(err) {
+      toast('写文件失败：'+err.message);
+      markSaved();
+    }
+  }
+
+  async function connectFolder(){
+    if (!isFsApi()) { toast('当前浏览器不支持 File System Access API；请用 Export JSON 手动导出'); return; }
+    try {
+      var dh = await window.showDirectoryPicker({mode:'readwrite'});
+      dirHandle = dh;
+      await idbSet(LS_DIR, dh);
+      var btn = document.getElementById('btnSync');
+      btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+      markSynced();
+      saveEdits();
+      toast('已连接文件夹，编辑与状态将自动写入 ' + ZKEY + '.edits.json');
+    } catch(err) { /* user cancelled */ }
+  }
+  document.getElementById('btnSync').addEventListener('click', connectFolder);
+
+  (async function(){
+    if (!isFsApi()) return;
+    var stored = await idbGet(LS_DIR);
+    if (stored) {
+      var perm = await stored.queryPermission({mode:'readwrite'});
+      if (perm === 'granted') {
+        dirHandle = stored;
+        var btn = document.getElementById('btnSync');
+        btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+        markSynced();
+      } else if (perm === 'prompt') {
+        var btn2 = document.getElementById('btnSync');
+        btn2.textContent = 'Reconnect Folder';
+      }
+    }
+  })();
+
+  // ── load + apply ──
+  function collectSections(){
+    var arr=[];
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      arr.push({
+        heading: card.dataset.heading||"",
+        page: card.dataset.page||"",
+        level: card.classList.contains('lvl3')?3:2,
+        synthetic: card.dataset.synthetic?true:false,
+        summary: sumEl?readProse(sumEl):"",
+        analysis: anaEl?readProse(anaEl):""
+      });
+    });
+    return arr;
+  }
+  function applySectionsToDom(secArr){
+    if (!secArr || !secArr.length) return;
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var idx=parseInt(card.dataset.index,10);
+      var s=secArr[idx];
+      if(!s) return;
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      if(sumEl && s.summary!=null) writeProse(sumEl, s.summary);
+      if(anaEl && s.analysis!=null) writeProse(anaEl, s.analysis);
+    });
+  }
+  function collectModuleNotes(){
+    var obj = {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = ta.value.trim();
+      if (v) obj[ta.dataset.module] = v;
+    });
+    return obj;
+  }
+  function applyModuleNotes(edits){
+    var mn = edits.module_notes || {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = mn[ta.dataset.module];
+      if (v != null) ta.value = v;
+    });
+  }
+  function applyEditsToDom(edits){
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f=el.dataset.field;
+      if (f.indexOf('key_quotes.')===0){
+        var m=f.match(/^key_quotes\.(\d+)\.(text|note)$/);
+        if(m){ var q=(edits.key_quotes||[])[parseInt(m[1],10)]; if(q) writeProse(el, q[m[2]]||""); }
+        return;
+      }
+      if (isListField(f)) {
+        var arr=getByPath(edits,f)||[]; el.innerHTML=''; arr.forEach(function(it){var li=document.createElement('li'); li.innerHTML=mdInline(it); el.appendChild(li);});
+      } else if (isProseField(f)) {
+        var vp=getByPath(edits,f); if(vp!=null) writeProse(el, vp);
+      } else { var v=getByPath(edits,f); if(v!=null) el.innerText=v; }
+    });
+    applySectionsToDom(edits.sections);
+    applyModuleNotes(edits);
+  }
+
+  // ── export / import ──
+  function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('is-visible'); setTimeout(function(){t.classList.remove('is-visible');},2400); }
+  document.getElementById('btnExport').addEventListener('click', function(){
+    saveToLS(); var edits=collectEdits();
+    var blob=new Blob([JSON.stringify(edits,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob); var a=document.createElement('a');
+    a.href=url; a.download=ZKEY+'.edits.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url); toast('已导出 '+ZKEY+'.edits.json');
+  });
+  var importInput=document.getElementById('importInput');
+  document.getElementById('btnImport').addEventListener('click', function(){ importInput.click(); });
+  importInput.addEventListener('change', function(e){
+    var file=e.target.files[0]; if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try { var edits=JSON.parse(ev.target.result); localStorage.setItem(LS_KEY,JSON.stringify(edits));
+        if (edits.status) setStatus(edits.status, false);
+        applyEditsToDom(edits); updateNotesCount(); toast('已导入编辑'); markSaved();
+        if (dirHandle) writeToFile(edits);
+      } catch(err){ toast('导入失败：'+err.message); }
+    };
+    reader.readAsText(file); importInput.value='';
+  });
+
+  // ── status ──
+  var currentStatus = "reading" || "reading";
+  function setStatus(s, persist){
+    currentStatus = s;
+    document.querySelectorAll('.status-btn').forEach(function(b){ b.classList.toggle('is-active', b.dataset.status===s); });
+    if (persist) {
+      var edits = saveToLS(s);
+      if (dirHandle) writeToFile(edits);
+      toast('Status → '+s+'；已写入 '+ZKEY+'.edits.json');
+    }
+  }
+  document.querySelectorAll('.status-btn').forEach(function(b){
+    b.addEventListener('click', function(){ setStatus(b.dataset.status, true); });
+  });
+  var storedEdits = null;
+  try { storedEdits = localStorage.getItem(LS_KEY) ? JSON.parse(localStorage.getItem(LS_KEY)) : null; } catch(e){}
+  var savedStatus = (storedEdits && storedEdits.status) || "reading" || "reading";
+  try { var ls = localStorage.getItem(LS_STATUS); if (ls) savedStatus = ls; } catch(e){}
+  currentStatus = savedStatus;
+  setStatus(currentStatus, false);
+
+  // ── accent theme switcher ──
+  var accentDots = document.querySelectorAll('.accent-dot');
+  function setAccent(a, persist){
+    document.body.setAttribute('data-accent', a);
+    accentDots.forEach(function(d){ d.classList.toggle('is-active', d.dataset.accent === a); });
+    if (persist) { try { localStorage.setItem(LS_ACCENT, a); } catch(e){} }
+  }
+  var savedAccent = "blue";
+  try { var sa = localStorage.getItem(LS_ACCENT); if (sa) savedAccent = sa; } catch(e){}
+  setAccent(savedAccent, false);
+  accentDots.forEach(function(d){
+    d.addEventListener('click', function(){ setAccent(d.dataset.accent, true); });
+  });
+
+  // ── progress rail ──
+  function onProgress(){
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var p = h > 0 ? (window.scrollY / h) * 100 : 0;
+    var rail = document.getElementById('progressRail');
+    if (rail) rail.style.width = p + '%';
+  }
+  window.addEventListener('scroll', onProgress, {passive:true});
+  window.addEventListener('resize', onProgress, {passive:true});
+
+  // ── left TOC + scroll-spy (shared with notes) ──
+  function buildNav(){
+    var toc = document.getElementById('toc');
+    if (!toc) return;
+    var list = document.createElement('div'); list.className='toc-list';
+    var modules = Array.prototype.slice.call(document.querySelectorAll('.module'));
+    if (!modules.length) { toc.style.display='none'; return; }
+
+    var mainLinks = [], subLinks = [], noteCards = [], navTargets = [];
+    modules.forEach(function(mod){
+      var id = mod.id;
+      var h2 = mod.querySelector('.sec-h');
+      var idx = h2.querySelector('.sec-index') ? h2.querySelector('.sec-index').textContent : '';
+      var name = h2.querySelector('.sec-name') ? h2.querySelector('.sec-name').textContent : h2.textContent;
+      var a = document.createElement('a');
+      a.className='toc-link'; a.href='#'+id; a.dataset.module=id;
+      a.innerHTML = '<span class="toc-num">'+idx+'</span><span class="toc-label">'+name+'</span>';
+      list.appendChild(a);
+      mainLinks.push(a);
+      navTargets.push({id:id, el:mod, type:'main'});
+      // sub-modules (only meaningful under 09, but generic)
+      mod.querySelectorAll('.submod > h3').forEach(function(h3){
+        if (!h3.id) h3.id = id + '-' + h3.textContent.replace(/\s+/g,'-');
+        var sa = document.createElement('a');
+        sa.className='toc-sublink'; sa.href='#'+h3.id; sa.dataset.sub=h3.id;
+        sa.innerHTML = '<span class="toc-subnum">·</span><span class="toc-sublabel">'+h3.textContent+'</span>';
+        list.appendChild(sa);
+        subLinks.push(sa);
+        navTargets.push({id:h3.id, el:h3, type:'sub'});
+      });
+    });
+    toc.appendChild(list);
+
+    noteCards = Array.prototype.slice.call(document.querySelectorAll('.note-card'));
+
+    navTargets.sort(function(a,b){ return topOf(a.el) - topOf(b.el); });
+    var linkMap = {}; mainLinks.forEach(function(l){ linkMap[l.dataset.module]=l; });
+    var subMap = {}; subLinks.forEach(function(l){ subMap[l.dataset.sub]=l; });
+
+    function onScroll(){
+      var pos = window.scrollY + 130;
+      var active = navTargets[0];
+      navTargets.forEach(function(t){ if (topOf(t.el) <= pos) active = t; });
+      mainLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      subLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      noteCards.forEach(function(n){ n.classList.remove('is-active'); });
+      if (active) {
+        if (active.type === 'main') {
+          var lk = linkMap[active.id]; if (lk) lk.classList.add('is-active');
+        } else {
+          var sl = subMap[active.id]; if (sl) sl.classList.add('is-active');
+          var pm = active.el.closest('.module');
+          if (pm) { var lk2 = linkMap[pm.id]; if (lk2) lk2.classList.add('is-active'); }
+        }
+        var modEl = active.type === 'main' ? active.el : active.el.closest('.module');
+        noteCards.forEach(function(n){ n.classList.toggle('is-active', n.dataset.module === modEl.id); });
+      }
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+    window.addEventListener('resize', onScroll, {passive:true});
+    onScroll();
+  }
+
+  // ── note jump + section → note focus ──
+  function wireNotes(){
+    document.querySelectorAll('.note-jump').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var el = document.getElementById(btn.dataset.target);
+        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+      });
+    });
+    document.querySelectorAll('.sec-h').forEach(function(h2){
+      h2.addEventListener('click', function(){
+        var mod = h2.closest('.module'); if (!mod) return;
+        var card = document.querySelector('.note-card[data-module="'+mod.id+'"]');
+        if (card) card.scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
+  }
+
+  function updateNotesCount(){
+    var n = 0;
+    document.querySelectorAll('.note-area').forEach(function(ta){ if (ta.value.trim()) n++; });
+    var el = document.getElementById('notesCount');
+    if (el) el.textContent = n;
+  }
+
+  // ── math typeset (MathJax) ──
+  // Typeset the whole document. Called on init (guarded) and again by the
+  // MathJax startup promise once the library is ready.
+  function litTypeset(){
+    if (window.MathJax && MathJax.typesetPromise) {
+      try { MathJax.typesetPromise().catch(function(){}); } catch(e){}
+    }
+  }
+  window.litTypeset = litTypeset;
+
+  // Editable fields (summaries, quotes) must stay plaintext while the user is
+  // typing, but render math on blur. We keep the raw source in data-tex so the
+  // typeset <mjx-container> never corrupts what gets saved.
+  // Every editable field (the 8 prose modules, section summaries/analyses, and
+  // quote blocks) shares one round-trip: focus shows the raw markdown+LaTeX
+  // source so it's editable; blur re-renders markdown and re-typesets math.
+  // The raw source is always preserved in data-tex, so what gets saved to
+  // localStorage / edits.json is never the rendered <strong>/<mjx-container>.
+  function wireEditable(){
+    document.querySelectorAll('[data-field].editable, .quote-text, .quote-note, .sec-summary, .sec-analysis')
+      .forEach(function(el){
+        el.addEventListener('focus', function(){
+          if (el.dataset.tex != null) showSource(el, el.dataset.tex);
+        });
+        el.addEventListener('input', function(){
+          if (el.dataset.tex != null) el.dataset.tex = el.innerText;
+        });
+        el.addEventListener('blur', function(){
+          if (el.dataset.tex != null) writeProse(el, el.dataset.tex);
+          if (window.MathJax && MathJax.typesetPromise) {
+            try { MathJax.typesetPromise([el]).catch(function(){}); } catch(e){}
+          }
+        });
+      });
+  }
+
+  // ── lightbox for figures ──
+  function wireLightbox(){
+    var overlay = document.getElementById('lbOverlay');
+    var img = document.getElementById('lbImg');
+    var cap = document.getElementById('lbCaption');
+    var closeBtn = document.getElementById('lbClose');
+    if (!overlay || !img) return;
+    function open(src, caption){
+      img.src = src; cap.textContent = caption || '';
+      overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden','false');
+    }
+    function close(){
+      overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden','true');
+      img.src = '';
+    }
+    document.querySelectorAll('.figure-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var im = card.querySelector('img'); if (!im) return;
+        var meta = card.querySelector('.figure-meta');
+        var caption = meta ? meta.innerText.replace(/\s+/g,' ').trim() : '';
+        open(im.getAttribute('src'), caption);
+      });
+    });
+    overlay.addEventListener('click', function(e){
+      if (e.target === overlay || e.target === closeBtn) close();
+    });
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && overlay.classList.contains('is-open')) close();
+    });
+  }
+
+  // ── init ──
+  // A rebuild bumps INITIAL.built_at. A stale localStorage snapshot from an
+  // older build (or a pre-fix broken sync) is discarded in favour of the
+  // freshly-built embedded data, so fixes always take effect on reload.
+  // A same-build localStorage copy (the user's own unsynced edits) is kept.
+  var stored = null;
+  try { stored = localStorage.getItem(LS_KEY); } catch(e){}
+  var storedObj = null;
+  try { storedObj = stored ? JSON.parse(stored) : null; } catch(e){ storedObj = null; }
+  var embeddedBuiltAt = (INITIAL && INITIAL.built_at) || null;
+  var storedBuiltAt = (storedObj && storedObj.built_at) || null;
+  if (storedObj && embeddedBuiltAt && storedBuiltAt && storedBuiltAt === embeddedBuiltAt) {
+    applyEditsToDom(storedObj);
+  } else {
+    applyEditsToDom(INITIAL);
+  }
+  buildNav();
+  wireNotes();
+  wireEditable();
+  wireLightbox();
+  updateNotesCount();
+  onProgress();
+  litTypeset();   // no-op until MathJax is ready; startup promise re-runs it
+})();
+</script>
+
+</body>
+</html>
