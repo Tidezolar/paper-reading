@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Grounding AI Agents in Contracts: An Empirical Evaluation of Spec-Driven Test Generation — Close Reading</title>
+<script>
+  (function(){
+    var v = '2026-07-14-v5';
+    if (location.search.indexOf('nocache=' + v) === -1) {
+      var url = location.origin + location.pathname + '?nocache=' + v + location.hash;
+      location.replace(url);
+    }
+  })();
+</script>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+  :root {
+    --accent-light: #F5B7AB;
+    --accent-mid:   #ED7E7D;
+    --accent-deep:  #C73B41;
+    --accent-tint:  #FDF6F4;
+    --accent-mid-rgb: 237,126,125;
+    --ink:        #423F3D;
+    --ink-soft:   #6E655E;
+    --ink-faint:  #7E756D;
+    --rule:       #EEE8E4;
+    --rule-lit:   #F5F0EC;
+    --border:     #E4DDD7;
+    --bg:         #FFFFFF;
+    --bg-soft:    #FAFAF8;
+    --bg-info:    #FDFCFB;
+
+    --font-body: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-display: "Spectral", Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+    --w-toc: 200px;
+    --w-notes: 250px;
+    --w-main: minmax(500px, 720px);
+    --gx: clamp(40px, 5vw, 72px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg); color: var(--ink);
+    line-height: 1.72; font-weight: 400;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .progress-rail {
+    position: fixed; top: 0; left: 0; right: 0; height: 1px;
+    background: var(--rule-lit); z-index: 120;
+  }
+  .progress-rail::after {
+    content: ""; display: block; height: 100%; width: 0%;
+    background: var(--accent-mid); transition: width .12s linear;
+  }
+
+  /* ── topbar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px clamp(28px, 4vw, 48px);
+    margin: 0 auto; flex-wrap: wrap; gap: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .tb-left {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  .tb-left .tb-key { color: var(--ink-soft); font-family: var(--font-mono); letter-spacing: .04em; }
+  .tb-right { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .tb-group { display: inline-flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+  .tb-sep { width: 1px; height: 18px; background: var(--rule); flex-shrink: 0; }
+  .tb-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); text-decoration: none; font-weight: 500;
+    padding: 5px 0; cursor: pointer; background: none; border: none;
+    font-family: var(--font-body);
+    border-bottom: 1px solid transparent; transition: color .2s, border-color .2s;
+  }
+  .tb-link:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .tb-link.is-connected { color: #8FB98A; border-bottom-color: #8FB98A; }
+  .tb-back { padding: 5px 0; }
+  .tb-back:hover { color: var(--accent-mid); border-bottom-color: transparent; }
+
+  .status-group { display: inline-flex; gap: 4px; align-items: center; }
+  .status-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 4px;
+  }
+  .status-btn {
+    font-size: 11px; letter-spacing: .04em; font-weight: 600;
+    color: var(--ink-faint); background: none;
+    border: 1px solid var(--rule); cursor: pointer;
+    padding: 3px 9px; font-family: var(--font-body); transition: all .18s;
+  }
+  .status-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+  .status-btn.is-active { color: var(--accent-deep); border-color: var(--accent-deep); background: var(--accent-tint); }
+
+  /* ── accent theme switcher ── */
+  .accent-group { display: inline-flex; gap: 6px; align-items: center; }
+  .accent-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 2px;
+  }
+  .accent-dot {
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--rule); padding: 0; background: none;
+    transition: transform .15s, box-shadow .15s; position: relative;
+  }
+  .accent-dot::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--dot);
+  }
+  .accent-dot[data-accent="rose"]  { --dot: #ED7E7D; }
+  .accent-dot[data-accent="green"] { --dot: #6FBF92; }
+  .accent-dot[data-accent="blue"]  { --dot: #6BA6D4; }
+  .accent-dot:hover { transform: scale(1.12); }
+  .accent-dot.is-active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--dot); }
+
+  /* ── three-column reader grid ── */
+  .reader {
+    display: grid;
+    grid-template-columns: var(--w-toc) minmax(500px, 1fr) var(--w-notes);
+    column-gap: var(--gx);
+    justify-content: space-between;
+    margin: 0 auto; padding: 0 clamp(28px, 4vw, 48px);
+    align-items: start;
+  }
+  .toc {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-toc);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-right: 4px;
+    font-size: 13px;
+  }
+  .notes {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-notes);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-left: 4px;
+    font-size: 13px;
+  }
+  .page { min-width: 0; padding-bottom: 96px; }
+
+  /* ── paper header ── */
+  .head {
+    padding: 48px 0 36px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .head-overline {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent-deep); font-weight: 600; margin-bottom: 18px;
+  }
+  .head-title {
+    font-size: clamp(28px, 4.6vw, 42px);
+    font-family: var(--font-display);
+    font-weight: 600; line-height: 1.16; letter-spacing: -.01em;
+    color: var(--ink); margin-bottom: 14px;
+  }
+  .head-sub {
+    font-size: 16px; line-height: 1.6; color: var(--ink-soft);
+    font-weight: 400; width: 100%; max-width: none;
+  }
+  .head-meta {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 26px; font-size: 13px; color: var(--ink-faint);
+  }
+  .head-meta > div { display: flex; align-items: center; gap: 8px; }
+  .hm-dot { width: 6px; height: 6px; background: var(--accent-mid); border-radius: 50%; flex-shrink: 0; }
+  .hm-val { color: var(--ink); font-weight: 500; }
+  .hm-val a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .hm-val a:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .hm-val .hm-time { font-family: var(--font-mono); }
+
+  .head-status { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+  .keywords-row { margin-top: 8px; }
+  .keywords-value { font-size: 13px; color: var(--ink-soft); }
+  .hs-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  /* ── module + headings (simplified) ── */
+  .module { scroll-margin-top: 96px; }
+  .sec-h {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 58px 0 16px; scroll-margin-top: 96px; cursor: pointer;
+    position: relative;
+  }
+  .sec-index {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 34px; height: 30px; padding: 0 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; letter-spacing: .02em;
+  }
+  .sec-name {
+    font-size: 23px; font-weight: 600; color: var(--ink);
+    font-family: var(--font-display);
+    letter-spacing: -.01em; line-height: 1.22;
+  }
+  .sec-hint {
+    margin-left: auto; align-self: center;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); opacity: 0; transition: opacity .2s;
+  }
+  .sec-h:hover .sec-hint { opacity: 1; }
+
+  .field-text {
+    font-size: 16px; line-height: 1.82; color: var(--ink);
+    padding: 4px 8px; margin: 0 -8px 4px; min-height: 1.6em;
+  }
+
+  /* Natural paragraph breaks inside prose fields (multi-<p>). */
+  .field-text p { margin: 0 0 0.92em; }
+  .field-text p:last-child { margin-bottom: 0; }
+  .sec-summary p { margin: 0 0 0.75em; }
+  .sec-summary p:last-child { margin-bottom: 0; }
+  .sec-analysis p { margin: 0 0 0.7em; }
+  .sec-analysis p:last-child { margin-bottom: 0; }
+
+  .block-lede {
+    max-width: 680px; margin: -2px 0 24px; color: var(--ink-soft);
+    font-size: 14px; line-height: 1.75;
+  }
+  .relevance-grid { margin: 0; }
+  .relevance-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .relevance-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .relevance-item h3 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .relevance-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .relevance-item .field-text { padding: 0; margin: 0; font-size: 15px; line-height: 1.75; }
+
+  /* Overview follows the same light, dot-led rhythm as the close-reading submodules. */
+  .overview-grid { margin: 0; }
+  .overview-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .overview-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .overview-item h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .overview-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .overview-item .field-text { padding: 0; margin: 0; font-size: 16px; line-height: 1.82; }
+  .overview-conclusion { background: transparent; }
+  .overview-conclusion .field-text + .field-text { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--accent-light); }
+  .relevance-wide { grid-column: 1 / -1; }
+  .relevance-item > .editable-list { margin: 0; }
+
+  @media (max-width: 760px) { .relevance-wide { grid-column: auto; } }
+
+  .editable, [contenteditable] {
+    outline: none; transition: background .15s, box-shadow .15s; border-radius: 1px;
+  }
+  .editable:focus, [contenteditable]:focus {
+    background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent-mid);
+  }
+  .editable:empty::before, [contenteditable]:empty::before {
+    content: attr(data-placeholder); color: var(--ink-faint); font-style: italic;
+  }
+
+  .body ol, .body ul {
+    margin: 12px 0 24px; padding: 0; list-style: none; counter-reset: ls;
+  }
+  .body ol li {
+    position: relative; padding: 7px 0 7px 40px;
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); counter-increment: ls;
+  }
+  .body ol li::before {
+    content: counter(ls); position: absolute; left: 0; top: 8px;
+    font-size: 13px; font-weight: 600; color: var(--accent-deep); width: 28px; text-align: right;
+  }
+  .editable-list li { padding-left: 40px; }
+
+  .key-concept {
+    margin: 18px 0 8px; padding: 22px 26px;
+    background: var(--bg); border: 1px solid var(--accent-light); position: relative;
+  }
+  .key-concept .kc-label {
+    position: absolute; top: -9px; left: 20px;
+    font-size: 10px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    background: var(--bg); padding: 2px 10px;
+  }
+
+  /* ── sub-modules inside 09 ── */
+  .submod { margin: 32px 0; }
+  .abstract-first { margin: 28px 0 0; }
+  .submod > h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 12px; scroll-margin-top: 96px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .submod > h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+
+  .quote-block {
+    margin: 22px 0; padding: 20px 24px;
+    background: var(--bg); border: 1px solid var(--rule);
+    position: relative;
+  }
+  .quote-block .qb-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .quote-block .qb-swatch {
+    width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--rule);
+  }
+  .quote-text {
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); font-style: italic;
+    padding: 4px 8px; margin: 0 -8px 8px; min-height: 1.5em;
+  }
+  .quote-note {
+    font-size: 13.5px; line-height: 1.6; color: var(--ink-soft);
+    padding: 4px 8px; margin: 0 -8px; min-height: 1.4em;
+    border-top: 1px dashed var(--rule-lit); padding-top: 10px;
+  }
+
+  /* ── figures ── */
+  .figures-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px; margin-top: 8px;
+  }
+  .figure-card {
+    border: 1px solid var(--rule); background: var(--bg); padding: 10px;
+    transition: border-color .18s;
+  }
+  .figure-card:hover { border-color: var(--accent-light); }
+  .figure-card img { width: 100%; height: auto; display: block; background: var(--bg-soft); }
+  .figure-meta {
+    margin-top: 8px; font-size: 11px; color: var(--ink-faint);
+    font-family: var(--font-mono); letter-spacing: .02em;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ── section-by-section module ── */
+  .sections-list { margin-top: 8px; display: flex; flex-direction: column; gap: 16px; }
+  .sec-card {
+    border: 1px solid var(--rule); background: var(--bg);
+    padding: 18px 22px; position: relative; scroll-margin-top: 96px;
+  }
+  .sec-card.lvl3 {
+    margin-left: 24px; background: var(--bg-soft);
+  }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 11px;
+    min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .lvl3 .sec-num { color: var(--ink-soft); border-color: var(--border); background: var(--bg); }
+  .sec-head h3 {
+    font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3;
+    letter-spacing: -.01em; margin: 0; flex: 1;
+  }
+  .sec-synthetic {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    color: var(--ink-faint); border: 1px solid var(--rule);
+    padding: 1px 6px; border-radius: 2px; margin-left: 6px; vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .sec-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .sec-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin: 10px 0 4px;
+  }
+  .sec-label-analysis { color: var(--ink-soft); }
+  .sec-summary { font-size: 15px; line-height: 1.78; }
+  .sec-analysis {
+    font-size: 14.5px; line-height: 1.74; color: var(--ink-soft);
+    background: var(--bg); padding: 10px 12px; border-left: 1px solid var(--rule-lit);
+  }
+
+  .info-box {
+    margin: 8px 0; padding: 20px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+    font-size: 14.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .info-box .info-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 14px; display: block;
+  }
+  .hl-group { margin-bottom: 16px; }
+  .hl-group:last-child { margin-bottom: 0; }
+  .hl-group-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: .10em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px;
+  }
+  .hl-swatch { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--rule); }
+  .hl-item {
+    font-size: 14px; line-height: 1.65; color: var(--ink);
+    padding: 6px 0 6px 14px; border-left: 1px solid var(--rule); margin-bottom: 6px;
+  }
+  .hl-item.is-comment { background: var(--accent-tint); border-left-color: var(--accent-mid); }
+  .hl-item .hl-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .hl-item .hl-comment { color: var(--accent-deep); font-size: 13px; display: block; margin-top: 2px; }
+
+  details.abstract-box {
+    margin: 8px 0 0; padding: 16px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+  }
+  details.abstract-box summary {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); cursor: pointer; list-style: none;
+  }
+  details.abstract-box summary::-webkit-details-marker { display: none; }
+  details.abstract-box summary::before { content: "+ "; }
+  details.abstract-box[open] summary::before { content: "− "; }
+  .abstract-text { margin-top: 12px; font-size: 14.5px; line-height: 1.7; color: var(--ink-soft); }
+
+  /* ── left TOC ── */
+  .toc-title {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    margin-bottom: 14px; padding-left: 12px;
+  }
+  .toc-list { display: flex; flex-direction: column; }
+  .toc-link, .toc-sublink {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 0 5px 12px; text-decoration: none; color: var(--ink-soft);
+    border-left: 1px solid transparent; line-height: 1.35;
+    transition: color .18s, border-color .18s, background .18s;
+  }
+  .toc-link:hover, .toc-sublink:hover { color: var(--ink); border-left-color: var(--accent-light); }
+  .toc-link.is-active, .toc-sublink.is-active {
+    color: var(--accent-deep); border-left-color: var(--accent-mid);
+    font-weight: 500; background: var(--accent-tint);
+  }
+  .toc-num {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    min-width: 20px; flex-shrink: 0;
+  }
+  .toc-label { flex: 1; }
+  .toc-sublink { padding-left: 30px; font-size: 12.5px; color: var(--ink-faint); }
+  .toc-subnum {
+    font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+    min-width: 24px; flex-shrink: 0;
+  }
+
+  /* ── right notes column ── */
+  .notes-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 12px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
+  }
+  .notes-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+  }
+  .notes-count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .notes-list { display: flex; flex-direction: column; gap: 16px; padding-top: 6px; }
+  .note-card {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .note-card:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 4px 20px rgba(var(--accent-mid-rgb),.08);
+  }
+  .note-card.is-active {
+    background: var(--bg);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 1px var(--accent-mid), 0 8px 28px rgba(var(--accent-mid-rgb),.12);
+    transform: translateY(-1px);
+  }
+  .note-jump {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: none; cursor: pointer; padding: 0 0 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--rule);
+    text-align: left; font-family: var(--font-body);
+  }
+  .note-jump:hover .note-name { color: var(--accent-deep); }
+  .note-num {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 30px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .note-name { font-size: 13.5px; font-weight: 600; color: var(--ink); transition: color .18s; }
+  .note-area {
+    width: 100%; min-height: 64px; resize: vertical;
+    border: 1px solid transparent; border-radius: 10px;
+    background: var(--bg); font-family: var(--font-body);
+    font-size: 13px; line-height: 1.62; color: var(--ink-soft);
+    outline: none; padding: 10px 12px;
+    transition: background .15s, border-color .15s, box-shadow .15s, color .15s;
+  }
+  .note-area::placeholder { color: var(--ink-faint); font-style: italic; }
+  .note-area:hover { background: var(--bg); }
+  .note-area:focus {
+    background: var(--bg); color: var(--ink);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 3px rgba(var(--accent-mid-rgb),.12);
+  }
+
+  .footnav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 40px 0 0; margin-top: 56px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-faint); letter-spacing: .06em;
+  }
+  .footnav a { color: var(--ink-soft); text-decoration: none; }
+  .footnav a:hover { color: var(--accent-mid); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg); padding: 11px 20px;
+    font-size: 13px; opacity: 0; transition: opacity .25s, transform .25s;
+    pointer-events: none; z-index: 200;
+  }
+  .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .save-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-faint); margin-left: 6px; vertical-align: middle; transition: background .2s;
+  }
+  .save-dot.is-dirty { background: var(--accent-mid); }
+  .save-dot.is-saved { background: #8FB98A; }
+  .save-dot.is-synced { background: #8FB98A; box-shadow: 0 0 0 2px rgba(143,185,138,.25); }
+
+  /* ── responsive: collapse to single column ── */
+  @media (max-width: 1100px) {
+    .reader { grid-template-columns: minmax(0, 1fr); }
+    .toc, .notes { display: none; }
+  }
+  @media (max-width: 640px) {
+    .head { padding: 32px 0 24px; margin-bottom: 24px; }
+    .head-title { font-size: 24px; }
+    .head-meta { gap: 12px; }
+    .key-concept, .quote-block { padding: 16px; }
+    .figures-grid { grid-template-columns: 1fr; }
+    .sec-h { gap: 10px; }
+    .sec-name { font-size: 20px; }
+  }
+
+  /* ── lightbox (click-to-enlarge figures) ── */
+  .lb-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(66,63,61,.92); padding: 5vh 5vw;
+    cursor: zoom-out; opacity: 0; transition: opacity .22s ease;
+  }
+  .lb-overlay.is-open { display: flex; opacity: 1; }
+  .lb-stage {
+    max-width: 92vw; max-height: 90vh; display: flex;
+    flex-direction: column; align-items: center; gap: 14px;
+  }
+  .lb-img {
+    max-width: 92vw; max-height: 80vh; object-fit: contain;
+    background: #fff; box-shadow: 0 12px 48px rgba(0,0,0,.4);
+    border-radius: 2px;
+  }
+  .lb-caption {
+    color: #fff; font-size: 13px; letter-spacing: .04em;
+    font-family: var(--font-mono); opacity: .82; text-align: center;
+  }
+  .lb-close {
+    position: absolute; top: 18px; right: 22px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff;
+    border: 1px solid rgba(255,255,255,.3); cursor: pointer;
+    font-size: 20px; line-height: 1; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .lb-close:hover { background: rgba(255,255,255,.24); }
+  .figure-card { cursor: zoom-in; }
+
+  /* ── accent themes: set <body data-accent="rose|green|blue"> ── */
+  [data-accent="green"] {
+    --accent-light: #B6DFC4; --accent-mid: #6FBF92; --accent-deep: #1F7A4F;
+    --accent-tint: #F1FAF4; --accent-mid-rgb: 111,191,146;
+  }
+  [data-accent="blue"] {
+    --accent-light: #AFD2EC; --accent-mid: #6BA6D4; --accent-deep: #286BA3;
+    --accent-tint: #F1F7FC; --accent-mid-rgb: 107,166,212;
+  }
+
+  /* When the user opted out of Zotero, hide Zotero-only modules. */
+  body[data-zotero="off"] .module-zotero { display: none; }
+
+</style>
+
+<!-- MathJax 3: render $...$, $$...$$, \(...\), \[...\] in note content. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' },
+    startup: {
+      ready: function () {
+        MathJax.startup.defaultReady();
+        MathJax.startup.promise.then(function () {
+          if (typeof window.litTypeset === 'function') window.litTypeset();
+        });
+      }
+    }
+  };
+</script>
+<script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body data-accent="blue" data-zotero="off">
+
+<div class="progress-rail" id="progressRail"></div>
+
+<header class="topbar">
+  <div class="tb-left">CLOSE READING &middot; <span class="tb-key">local-68739ddc</span></div>
+  <div class="tb-right">
+    <a class="tb-link tb-back" href="../dashboard.html" title="返回总览 Dashboard" style="text-transform:none; letter-spacing:.04em;">&larr; 总览</a>
+    <span class="tb-sep"></span>
+    <div class="accent-group tb-group" id="accentGroup">
+      <span class="accent-label">Theme</span>
+      <button class="accent-dot" data-accent="rose" type="button" title="Rose"></button>
+      <button class="accent-dot" data-accent="green" type="button" title="Green"></button>
+      <button class="accent-dot" data-accent="blue" type="button" title="Blue"></button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <button class="tb-link" id="btnSync" type="button" title="Auto-save edits & status to a local folder">Sync Folder</button>
+      <button class="tb-link" id="btnExport" type="button">Export JSON</button>
+      <button class="tb-link" id="btnImport" type="button">Import JSON</button>
+      <span class="save-dot" id="saveDot" title="unsaved"></span>
+    </div>
+  </div>
+</header>
+
+<div class="reader">
+
+  <nav class="toc" id="toc"><div class="toc-title">目录 · Contents</div></nav>
+
+  <main class="page body">
+
+    <header class="head">
+      <div class="head-overline">PAPER &middot; 2026 &middot; arXiv</div>
+      <h1 class="head-title">Grounding AI Agents in Contracts: An Empirical Evaluation of Spec-Driven Test Generation</h1>
+      <p class="head-sub">Michele Tufano, James McClure, José Cambronero, Runxiang Cheng, Sherry Y. Shi, Renyao Wei, Dorothy Chen, Franjo Ivančić, Livio Dalloro &amp; Pat Rondon</p>
+      <div class="head-meta">
+        <div><span class="hm-dot"></span>Collections <span class="hm-val">Unfiled</span></div>
+        <div><span class="hm-dot"></span>DOI <span class="hm-val"><a href="https://doi.org/10.48550/arXiv.2608.17177" target="_blank" rel="noopener">10.48550/arXiv.2608.17177</a></span></div>
+        <div><span class="hm-dot"></span>Highlights <span class="hm-val">0</span></div>
+        <div><span class="hm-dot"></span>Reading time <span class="hm-val hm-time" id="readingTime">—</span></div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Status</span>
+        <div class="status-group">
+          <button class="status-btn" data-status="reading" type="button">Reading</button>
+          <button class="status-btn" data-status="done" type="button">Done</button>
+          <button class="status-btn" data-status="archived" type="button">Archived</button>
+        </div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Research</span>
+        <span class="hm-val">不基于任何研究项目</span>
+      </div>
+      <div class="head-status keywords-row"><span class="hs-label">Keywords</span><span class="keywords-value">测试生成 · 半形式化规格 · 设计契约 · 测试判定依据 · 软件智能体 · 历史缺陷检测 · 契约覆盖率</span></div>
+    </header>
+
+    <section class="submod abstract-first" aria-label="Abstract 原文">
+      <h3 id="sub-abstract">Abstract（原文）</h3>
+      <details class="abstract-box">
+        <summary>展开 / 收起 Abstract 原文</summary>
+        <div class="abstract-text">LLM-based agents are increasingly used for coding tasks, where they have outperformed many classical approaches and scaled to repository-level tasks, such as test generation. However, when di- rectly prompted to generate tests, these agents can fail to reason about the code and its underlying contracts, thereby missing edge cases and behavioral boundaries that affect test quality. To address this limitation, we propose Spec-Driven Test Generation, where we instruct an agent to first reason about – and explicitly document – code pre-conditions, post-conditions, and undefined behaviors. This intermediate semi-formal specification acts as a cognitive scaffold to guide subsequent test generation. Our evaluation on production bugs from Google shows that the spec-driven agent can deliver a 9.8 percentage points (p = 0.0352) improvement in bug detection rate and a 2.5 percentage point (p = 0.0034) improvement in branch coverage, compared to a traditional test generation agent baseline. Using LLM-as-a-Judge, we further show that test suites generated by the spec-driven agent are superior to the baseline and human-authored tests in 77.8% and 56.7% of the cases, respec- tively, and demonstrated improvements on following best practices, readability, and edge-case coverage.</div>
+      </details>
+    </section>
+
+    <section class="module reader-block" id="sec-overview">
+      <h2 class="sec-h"><span class="sec-index">01</span><span class="sec-name">论文速览</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">先用几段话回答：这篇文章为什么要做、具体想解决什么、怎样做、最后得出了什么结论。</p>
+
+      <div class="overview-grid">
+        <div class="overview-item">
+          <h3>研究背景</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_background" data-placeholder="已有认识、现实问题与研究缺口…"><p>生成可编译、可通过的单元测试已经较容易，真正困难的是写出能区分正确行为与错误行为的<strong>测试判定依据（oracle）</strong>。直接读代码生成测试时，智能体可能停留在正常路径，遗漏输入边界、异常条件和状态副作用。设计契约为这些行为提供了表达方式，但已有系统通常缺乏可直接使用的契约，因此作者让智能体先从代码与上下文中提炼契约，再据此生成测试。</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究目标</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_question" data-placeholder="作者真正想回答的问题或验证的假设…"><p>在相同模型与工具框架下，强制智能体先生成包含<strong>前置条件、后置条件与测试建议</strong>的半形式化文档，能否比直接生成测试更有效地覆盖分支并检出真实历史缺陷？生成文档是否写到了该缺陷违反的约束，又有多少约束能够转化为有效测试？</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究内容</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_approach" data-placeholder="主要方法、研究设计或数据构建方式…"><ol class="markdown-list"><li><strong>把行为要求写成中间产物</strong>：为函数、方法和类建立 $S_c=\langle D_c,Pre_c,Post_c,Sug_c\rangle$，分别记录行为描述、执行前约束、执行后保证与对应测试建议；条件使用自然语言，落盘为 <code>.spec.md</code>。</li><li><strong>用修复后代码进行盲测生成</strong>：选择 Google 内部 90 个历史缺陷，每个方案各尝试 5 次；提供修复后代码并移除目标组件既有测试，隐藏缺陷描述、提交说明和修复差异。两组均使用 Gemini 3 Flash，实验跳过人工契约修订。</li><li><strong>通过版本回退验证缺陷检出</strong>：测试须先在修复版通过，再在回退后的缺陷版触发运行失败；同时统计分支覆盖，用 Gemini 3.1 Pro 多次评审测试质量与目标缺陷的契约覆盖情况。</li></ol></div>
+        </div>
+        <div class="overview-item overview-conclusion">
+          <h3>主要结论</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_findings" data-placeholder="最重要的发现、结果或方法价值…"><ol class="markdown-list"><li><strong>五次尝试提高历史缺陷检出率</strong>：<code>detect@5</code> 从 <strong>53.4% 升至 63.2%</strong>，增加 9.8 个百分点，McNemar $p=0.0352$；单次仅从 36.9% 升至 41.1%，差异不显著。五次运行实际检出缺陷为 48 个与 57 个。</li><li><strong>收益主要体现在分支与边界行为</strong>：平均分支覆盖率由 <strong>46.4% 升至 48.9%</strong>，$p=0.0034$；行覆盖率从 74.8% 降至 74.4%，差异不显著。两组 <code>pass@5</code> 均为 98.9%。</li><li><strong>契约覆盖与检出相关，转化仍有损耗</strong>：450 次尝试中，写到目标契约时检出率为 <strong>151/275=54.9%</strong>，未写到时为 <strong>34/175=19.4%</strong>；这是相关性分析。即使写对契约，仍有大量输入构造、场景落实和断言失败。</li><li><strong>质量偏好伴随额外成本</strong>：LLM 评审报告相对基线总体胜率 77.8%，相对人工测试 56.7%；总 token 从 243.9M 增至约 336.7M（<strong>+38%</strong>），每个检出缺陷的 token 成本约增加 16.2%。</li></ol></div>
+          <div class="field-text editable" contenteditable="true" data-field="guide_insight" data-placeholder="这些结果意味着什么，解释边界在哪里…"><p>显式契约提供了一个可检查的<strong>语义中间层</strong>，使失败可以分解为“未提取关键约束”和“约束未落实为有效输入及断言”。执行结果支持整套两阶段流程在该历史缺陷任务上的收益；契约本身的独立因果贡献仍需等预算、等长度的计划或伪代码对照。契约覆盖率只评估是否命中一个已知缺陷对应的约束，不能据此断言整个组件的规格完整或正确。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="module reader-block" id="sec-deepread">
+      <h2 class="sec-h"><span class="sec-index">02</span><span class="sec-name">原文精读</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">沿着原文的章节顺序，区分每一节说了什么，以及这些内容如何支撑论文的论证。</p>
+
+      <div class="submod">
+        <h3 id="sub-sections">分章节总结与分析</h3>
+        <div id="sectionsContainer"><div class="sections-list"><section class="sec-card" data-index="0" data-num="" data-heading="Abstract" data-page="1"><div class="sec-head"><span class="sec-num"></span><h3>Abstract</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>提出先记录代码的前置条件、后置条件与未定义行为，再生成测试的<strong>两阶段流程</strong>。摘要概括90个工业历史缺陷上的9.8个百分点检测增益、2.5个百分点分支增益及模型质量偏好。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>摘要压缩了实验边界。<strong>9.8个百分点对应k=5</strong>，56.7%来自LLM对人工测试的偏好；单次尝试、等预算收益与人工工程质量等效需要分别核实。</p></div></div></section><section class="sec-card" data-index="1" data-num="1" data-heading="Introduction" data-page="1"><div class="sec-head"><span class="sec-num">1</span><h3>Introduction</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>引言将测试生成难点归于<strong>缺少预期行为的显式锚点</strong>：模型可执行代码并生成表面测试，却可能漏掉边界。作者借鉴Design by Contract，让智能体先写半形式化规格，并把规格驱动流程、契约覆盖率和工业评估列为贡献。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>引言建立了“表达约束→更有针对性的测试→更多缺陷检出”的机制假设。后文直接比较的是整套流程；<strong>认知支架的独立作用</strong>尚未通过等预算或其他结构化计划消融识别。</p></div></div></section><section class="sec-card" data-index="2" data-num="2" data-heading="Semi-Formal Specifications for API behavior" data-page="2"><div class="sec-head"><span class="sec-num">2</span><h3>Semi-Formal Specifications for API behavior</h3><span class="sec-page">p.2</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>定义每个代码单元的规格为 $S_c=\langle D_c,Pre_c,Post_c,Sug_c\rangle$，包含意图、前置条件、后置条件和测试建议。条件用自然语言写入<strong><code>.spec.md</code></strong>，可标记已测/未测并关联测试。作者认为注释、文档与调用点可帮助推断开发者意图；客户数据库示例展示空姓名异常缺少测试时如何产生建议。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>形式化元组规定了<strong>文档结构</strong>，未使自然语言条件自动可判定，也未证明它们与需求一致。测试建议有助于连接约束与代码，但错误意图、过度规格和条件遗漏仍需外部检查。示例允许已有测试；实际greenfield评估移除了目标既有测试，应区分框架功能与实验条件。</p></div></div></section><section class="sec-card" data-index="3" data-num="3" data-heading="Proposed Approach" data-page="2"><div class="sec-head"><span class="sec-num">3</span><h3>Proposed Approach</h3><span class="sec-page">p.2</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>总览把输入代码经由<strong>规格提取与测试生成</strong>转化为测试套件。Listing 1中，已有无效电话和成功路径测试，空姓名错误条件被标为未测并给出具体建议；该可读文档承担中间计划作用。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该节展示预期工作流和示例，没有新增效果实验。文本中的“空姓名→异常”说明为什么中间产物能被审核；<strong>规格可审阅性与实际审核收益</strong>仍是不同命题，后者未在自动化实验中测量。</p></div></div></section><section class="sec-card lvl3" data-index="4" data-num="3.1" data-heading="Phase I: Specification Extraction" data-page="3"><div class="sec-head"><span class="sec-num">3.1</span><h3>Phase I: Specification Extraction</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>第一阶段依次聚合上下文、推断前后置条件、对照可用测试标记覆盖、为未测条件生成建议。目标覆盖所有公共、私有方法及辅助函数，形成<strong>完整的代码单元规格集合</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>覆盖全部方法依赖提示，作者明确说<strong>未程序化强制覆盖</strong>。后文35次方法遗漏与这一设计缺口呼应。适用时可通过代码符号清单检查契约条目，但这属于改进建议，原方法没有实施证据。</p></div></div></section><section class="sec-card lvl3" data-index="5" data-num="3.2" data-heading="Human-in-the-Loop Specification Curation" data-page="3"><div class="sec-head"><span class="sec-num">3.2</span><h3>Human-in-the-Loop Specification Curation</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>在规格完成后，开发者可修改条件并接受、拒绝或修订测试建议，再进入代码生成。该环节利用了规格的<strong>人类可读性</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这是框架支持的可选接口；§4.2的比较<strong>跳过人工干预</strong>。因此不能将实验效果归因于专家校正，也不能据此估算人工审核所需时间或收益。</p></div></div></section><section class="sec-card lvl3" data-index="6" data-num="3.3" data-heading="Phase II: Oracle-Driven Test Generation" data-page="3"><div class="sec-head"><span class="sec-num">3.3</span><h3>Phase II: Oracle-Driven Test Generation</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>第二阶段以规格和现有测试为输入，依次落实未测条件对应的建议，完成输入构造、单元断言、构建及验证。生成测试之前必须完成规格，使上下文包含<strong>显式边界条件</strong>。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>执行建议仍需要解决可达性、复杂fixture与严格断言。后文110次测试阶段失败表明<strong>写出契约不保证生成可检出测试</strong>。一般流程描述为扩充既有测试，实验则从空目标重建，两者推广范围不同。</p></div></div></section><section class="sec-card" data-index="7" data-num="4" data-heading="Empirical Design" data-page="3"><div class="sec-head"><span class="sec-num">4</span><h3>Empirical Design</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>提出四个研究问题：<strong>缺陷检测与覆盖、测试质量、契约准确性和token成本</strong>。研究选择真实工业故障，以检验隐式状态依赖与边界违反，而非只看生成代码是否通过。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>四类证据互相补充：执行指标约束效果，评审指标描述偏好，规格分析提供诊断，成本约束实用性。需要保持不同样本单位，特别是<strong>按bug聚合结果与逐次尝试标签</strong>的区别。</p></div></div></section><section class="sec-card lvl3" data-index="8" data-num="4.1" data-heading="Dataset Collection" data-page="4"><div class="sec-head"><span class="sec-num">4.1</span><h3>Dataset Collection</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>数据来自Google内部问题系统，含<strong>90个已确认且可复现的历史修复</strong>，语言含C++、Java、Python、Go。仅保留单生产源码文件、相应测试及可选BUILD更改，排除语法小修、多媒体和个人信息问题。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>真实缺陷增强实际语义复杂性；单文件、可复现、可识别测试目标的筛选也限制外推。缺少语言分布、领域分层及候选流失统计，<strong>多语言存在</strong>不足以证明各语言上的效果一致。数据私有降低独立复核能力。</p></div></div></section><section class="sec-card lvl3" data-index="9" data-num="4.2" data-heading="Agent Configurations" data-page="4"><div class="sec-head"><span class="sec-num">4.2</span><h3>Agent Configurations</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>两组共用<strong>Gemini 3 Flash</strong>、相同工具与推理参数（T=1.0、TopP=1.0、TopK=50）。基线分析源码、写测试并运行验证；规格组增加强制的规格阶段。为减少人工混杂，两组比较中跳过HITL。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>模型、工具控制使比较具备清楚的流程层解释；规格组额外使用token，尚未控制<strong>计算量与结构化内容</strong>的区别。基线也具备推理能力，不能把它理解为完全没有计划或思考的单次代码补全。</p></div></div></section><section class="sec-card lvl3" data-index="10" data-num="4.3" data-heading="Greenfield Test Generation Setup" data-page="4"><div class="sec-head"><span class="sec-num">4.3</span><h3>Greenfield Test Generation Setup</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>生成端只得到修复后源码 $C_f$ 与空测试目标。隐藏缺陷描述、提交信息和修复diff；先运行生成测试验证修复版通过并记录覆盖，再反向应用补丁得到 $C_b$。只有测试<strong>在修复版通过、在缺陷版运行失败</strong>才算检出，编译失败排除。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>协议隔离已知bug信息并提供可执行真值，能检验测试对历史行为差异的敏感性。模型读取<strong>修复后实现</strong>已获得正确行为的重要线索；该结果对未知bug源码上的独立oracle恢复与新缺陷发现没有直接结论。文中目标测试移除不等同于整个仓库所有辅助上下文均不可见。</p></div></div></section><section class="sec-card lvl3" data-index="11" data-num="4.3.1" data-heading="Post-execution sanity checks" data-page="5"><div class="sec-head"><span class="sec-num">4.3.1</span><h3>Post-execution sanity checks</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>运行后审计文件操作，修改被测源码或其他既有源码的尝试被<strong>丢弃且不补跑</strong>；只允许改目标测试和必要BUILD。两组都允许创建规格、草稿和任务清单等临时文件。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>审计避免智能体篡改被测代码制造虚假故障，但被剔除运行数量及其分母处理未明确。两组均可写规格表明主要处理差异是<strong>强制流程与指令</strong>，不能简单归为一组拥有文档工具、另一组没有。</p></div></div></section><section class="sec-card lvl3" data-index="12" data-num="4.4" data-heading="Evaluation Protocol and Metrics" data-page="5"><div class="sec-head"><span class="sec-num">4.4</span><h3>Evaluation Protocol and Metrics</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>该父节组织<strong>定量指标、质量评审和契约评审</strong>三个小节，本段本身只含标题。具体定义与统计过程在随后小节展开。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>保留原始层级以免将后续小节误当独立主节。该段<strong>没有独立证据</strong>；评估有效性需结合4.4.1–4.4.3的输入、单位与标签定义判断。</p></div></div></section><section class="sec-card lvl3" data-index="13" data-num="4.4.1" data-heading="RQ1: Quantitative Effectiveness" data-page="5"><div class="sec-head"><span class="sec-num">4.4.1</span><h3>RQ1: Quantitative Effectiveness</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>每个缺陷每组独立采样5次。<code>pass@k</code>衡量修复版可通过性；<code>detect@k</code>衡量k次内得到有效故障测试的概率；另统计行、分支覆盖。按<strong>90个bug进行10,000次bootstrap</strong>估计区间，检出采用McNemar，连续覆盖采用配对Wilcoxon。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>以bug为bootstrap单位避免把所有运行当完全独立任务，但没有详细给出各k估计与列联表构建的完整实现。<code>pass@k</code>衡量存在可通过套件的机会，<strong>不等于正确性或发现bug的能力</strong>。多个k同时检验时也应考虑多重比较。</p></div></div></section><section class="sec-card lvl3" data-index="14" data-num="4.4.2" data-heading="RQ2: Qualitative Test Rigor via LLM-as-a-Judge" data-page="5"><div class="sec-head"><span class="sec-num">4.4.2</span><h3>RQ2: Qualitative Test Rigor via LLM-as-a-Judge</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>用更强的<strong>Gemini 3.1 Pro</strong>匿名成对评估，随机测试A/B顺序，比较最佳实践、可读性、边界覆盖与整体偏好。每维度5次调用严格多数投票，无多数视为平局；评分规则浓缩自Google测试实践，并同样比较人工测试。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>随机顺序和重复投票降低位置偏差与随机噪声，<strong>不能直接校准质量真值</strong>。同系列模型可能共享风格偏好；边界评审与规格表述契合也可能使该维度偏向处理组。公开独立人工复核与分母、套件选择规则有助于解释胜率。</p></div></div></section><section class="sec-card lvl3" data-index="15" data-num="4.4.3" data-heading="RQ3: Specification Accuracy and Contract Coverage" data-page="5"><div class="sec-head"><span class="sec-num">4.4.3</span><h3>RQ3: Specification Accuracy and Contract Coverage</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>定义<strong>ContractCoverage@k</strong>：k次规格中能否描述目标历史缺陷违反的行为约束。事后judge读取bug描述、提交说明、修复diff和规格，重复5次多数投票；另将失败分为规格遗漏或测试落实失败。作者明确该指标需要已知修复，且只覆盖目标缺陷相关边界。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>生成端与评审端的信息权限必须分开：judge可看修复diff不代表智能体生成时看过。该指标是<strong>缺陷条件化的局部召回代理</strong>，没有完整契约集合的分母，也没有精度；一份包含大量幻觉的规格仍可能命中目标约束。</p></div></div></section><section class="sec-card" data-index="16" data-num="5" data-heading="Evaluation Results" data-page="6"><div class="sec-head"><span class="sec-num">5</span><h3>Evaluation Results</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>该节开始报告工业研究结果，随后依次回答<strong>RQ1至RQ4</strong>，包括检测、覆盖、质量、规格诊断和token成本。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>本父节只是结果入口，不单独提供数据。应按后续指标各自的<strong>统计单位与生成预算</strong>解释，避免把成本、模型偏好和可执行检出汇成一个“准确率”。</p></div></div></section><section class="sec-card lvl3" data-index="17" data-num="5.1" data-heading="RQ1: Quantitative Effectiveness" data-page="6"><div class="sec-head"><span class="sec-num">5.1</span><h3>RQ1: Quantitative Effectiveness</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>RQ1分成<strong>缺陷检出能力与结构覆盖</strong>，在k=1至5的独立尝试预算下比较两组，并先检查测试可运行性。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>不同k共享同一批缺陷与生成样本，曲线上的各点并非独立复制实验。随着采样增加，优势扩大支持预算与流程可能存在交互，仍需<strong>等总成本曲线</strong>确认实际资源配置优势。</p></div></div></section><section class="sec-card lvl3" data-index="18" data-num="5.1.1" data-heading="Test Suite Pass Rate (pass@k)" data-page="6"><div class="sec-head"><span class="sec-num">5.1.1</span><h3>Test Suite Pass Rate (pass@k)</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>表1的基线/规格组<code>pass@1…5</code>为<strong>94.4/94.2、98.0/97.8、98.4/98.3、98.7/98.7、98.9/98.9%</strong>。作者据此认为两组基本代码生成能力相当，契约阶段没有降低生成可运行测试的机会。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>通过率几乎相等使“只是改善编译率”的解释不充分，但通过率属于<strong>饱和的有效性指标</strong>，不能仅凭它证明全部检出增益都由契约语义机制产生。高通过率也可能来自未覆盖关键行为的容易测试。</p></div></div></section><section class="sec-card lvl3" data-index="19" data-num="5.1.2" data-heading="Fault Detection Rate (detect@k)" data-page="6"><div class="sec-head"><span class="sec-num">5.1.2</span><h3>Fault Detection Rate (detect@k)</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>表2中<code>detect@1…5</code>由<strong>36.9→41.1、45.3→51.3、49.4→56.6、51.8→60.5、53.4→63.2%</strong>，增益逐步扩大；p值为0.3075、0.4545、0.0574、0.0352、0.0352。k=5共同检出45个，规格独有12个，基线独有3个。极端难度（全部检出或全部失败）的bug从59/90降至52/90，作者解释为部分困难bug转入偶尔可检出状态。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>显著性主要在<strong>k=4、5</strong>，不能把9.8个百分点当作单次收益。k=5的区间较宽：基线[43.3,63.3]%、规格[53.3,73.3]%。配对检验利用同一bug上的成败，区间重叠本身不否定差异。规格组未完全支配基线，3个独有缺陷表明两者探索仍有互补；“更难”解释来自样本内频率，未独立标注缺陷难度。</p></div></div></section><section class="sec-card lvl3" data-index="20" data-num="5.1.3" data-heading="Structural Coverage" data-page="7"><div class="sec-head"><span class="sec-num">5.1.3</span><h3>Structural Coverage</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>覆盖率针对固定版本的目标源码，先对每个bug的5次运行取平均，再跨bug汇总。行覆盖<strong>74.8%→74.4%</strong>，p=0.3659；分支覆盖<strong>46.4%→48.9%</strong>，p=0.0034。作者认为规格更能引导边界与复杂控制流。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>分支增加而行覆盖基本不变与更细的条件探索相容；覆盖变化仍无法单独证明缺陷发现的具体中介机制。此处报告的是<strong>平均单次套件覆盖</strong>，不是5套测试合并后可达到的覆盖率，不能拿它直接估算组合测试的覆盖上限。</p></div></div></section><section class="sec-card lvl3" data-index="21" data-num="5.2" data-heading="RQ2: Qualitative Test Rigor" data-page="7"><div class="sec-head"><span class="sec-num">5.2</span><h3>RQ2: Qualitative Test Rigor</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>质量比较涉及文中所称<strong>83个成功生成的测试对象</strong>，与基线及原始人工测试分别比较。作者报告五次评审的自一致性≥90%，平局≤5.6%。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这里的83与后续77.8%、56.7%等百分比缺少明确的<strong>分母对应关系</strong>，并且“test”是否指整套测试与选取哪次运行未充分说明。高自一致说明judge稳定，不说明与人类评审一致；结论应限定为模型偏好。</p></div></div></section><section class="sec-card lvl3" data-index="22" data-num="5.2.1" data-heading="Qualitative Evaluation Results" data-page="7"><div class="sec-head"><span class="sec-num">5.2.1</span><h3>Qualitative Evaluation Results</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>相对基线，规格组在最佳实践、可读性、边界覆盖和整体的偏好率分别为<strong>65.6%、68.9%、83.3%、77.8%</strong>；相对人工整体为56.7%。作者列举更精确断言、局部factory、异常路径与稳定并发同步等优点，同时承认复杂状态/时区场景不足及偶尔利用反射绕过封装。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>解释性例子揭示质量维度的取舍；模型偏好可能奖励分解与命名，却无法替代长期维护效果。<strong>复杂状态推理与封装纪律</strong>仍是明确弱点。相对人工56.7%没有人工盲评、置信区间和统计等效检验，不足以推导普遍人类水平。表3浮动排版落在本段中，其覆盖值按5.1.3解释。</p></div></div></section><section class="sec-card lvl3" data-index="23" data-num="5.3" data-heading="RQ3: Specification Accuracy" data-page="8"><div class="sec-head"><span class="sec-num">5.3</span><h3>RQ3: Specification Accuracy</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>RQ3在规格组<strong>5×90=450次尝试</strong>上分析规格是否建立了能捕获目标缺陷的oracle，并进一步解释未检出原因。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>此处样本单位从每个bug切换为每次尝试。重复尝试共享同一个缺陷难度、代码和约束，<strong>聚类相关性</strong>会影响后续逐尝试统计推断，不能把450完全当独立缺陷。</p></div></div></section><section class="sec-card lvl3" data-index="24" data-num="5.3.1" data-heading="Contract Coverage and Bug Detection" data-page="8"><div class="sec-head"><span class="sec-num">5.3.1</span><h3>Contract Coverage and Bug Detection</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p><code>ContractCoverage@1/2/5</code>为<strong>61.1%、69.7%、78.9%</strong>。450次中目标契约覆盖275次，检出151次（54.9%）；未覆盖175次，检出34次（19.4%）。Fisher p=$3.62\times10^{-14}$、Phi=0.35。作者将缺契约仍检出的34次解释为结构覆盖或崩溃检查偶然触发。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这是<strong>观察到的中等相关性</strong>：易理解bug可能同时更容易写契约和测试。没有随机删除/替换契约或控制缺陷固定效应，不能把54.9%与19.4%的差直接当因果效应。目标契约覆盖后仍有124次未检出，说明表示到执行存在明显瓶颈；偶然触发的机制解释也缺乏逐例独立验证。</p></div></div></section><section class="sec-card lvl3" data-index="25" data-num="5.3.2" data-heading="Specification Generation Failure" data-page="8"><div class="sec-head"><span class="sec-num">5.3.2</span><h3>Specification Generation Failure</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>在<strong>141次未覆盖契约且未检出</strong>的尝试中，judge将原因分为方法遗漏35、错误处理遗漏32、数据变换遗漏27、常量细节被抽象25、执行约束遗漏22，五类数量合计141。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该分类说明泛泛描述功能会丢失对测试至关重要的具体条件，特别是<strong>私有辅助方法、错误分支与常量值</strong>。标签来自模型诊断，未见人工一致性；也未按所有契约覆盖失败175次统计，余下34次虽遗漏但检出，不能混用两个分母。</p></div></div></section><section class="sec-card lvl3" data-index="26" data-num="5.3.3" data-heading="Test Generation Failure" data-page="8"><div class="sec-head"><span class="sec-num">5.3.3</span><h3>Test Generation Failure</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>作者将<strong>110次契约覆盖但未有效检出</strong>归为测试生成失败：输入不充分37、遗漏场景36、弱/缺失断言20、错误测试逻辑12、无效测试代码5。正文另提14次框架或编译失败，并称其不属于前述语义失败。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>数量上151检出+110语义失败+14运行失败=275覆盖契约尝试；但110类中“无效测试代码5次”又明确涉及编译失败，存在<strong>分类边界冲突</strong>。应原样保留并标注。前两类占73/110，提示可将约束到输入及场景的落实列为改进重点，尚需干预实验验证收益。</p></div></div></section><section class="sec-card lvl3" data-index="27" data-num="5.4" data-heading="RQ4: Cost-Efficiency" data-page="9"><div class="sec-head"><span class="sec-num">5.4</span><h3>RQ4: Cost-Efficiency</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>表4记录基线/规格组总token <strong>243.9M/336.7M</strong>、输入224.4M/305.7M、输出19.5M/31.0M，分别增加38.0%、36.2%、59.1%。k=5独立检出48/57个，每个检出bug约5.1M/5.9M token，增加16.2%。作者将成本归于额外规格上下文和更详细输出。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>“检出更多”与“每单位成本更低”需要分开；这里<strong>单位检出token成本变高</strong>。由表值计算额外92.8M/净增9≈10.3M token，仍无法比较让基线额外采样的效果。正文总量336.6M及输出30.9M/19.4M与表格有轻微冲突；未报告延迟、货币成本或评审开销范围。</p></div></div></section><section class="sec-card" data-index="28" data-num="6" data-heading="Threats to Validity" data-page="9"><div class="sec-head"><span class="sec-num">6</span><h3>Threats to Validity</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>作者承认LLM评审有噪声、冗长偏好与自偏好，采用更强judge、匿名顺序和5次多数投票缓解；内部效度讨论数据污染与单一模型；外部效度限于Google单仓库、单源码文件修复。并明确历史缺陷检验与<strong>发现新bug</strong>之间的距离。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>同一底模控制部分共同因素，却<strong>不能完全排除数据污染或交互效应</strong>；更强同系列judge和重复调用也不消除系统偏差。还需额外考虑预算不匹配、人工质量真值缺失、剔除运行的分母、逐尝试聚类及单缺陷契约代理的边界。</p></div></div></section><section class="sec-card" data-index="29" data-num="7" data-heading="Related Work" data-page="9"><div class="sec-head"><span class="sec-num">7</span><h3>Related Work</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>将方法放在Hoare逻辑、设计契约、形式验证、LLM程序推理和测试生成脉络中。与形式方法相比，目标是利用自然语言条件生成有效测试；并讨论同期DeepTest及其调用图式规格。作者承认尚需比较<strong>高层测试计划、伪代码、执行轨迹</strong>，补充精度导向指标并对照静态分析和动态约束挖掘。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>相关工作说明组成思想已有基础，创新重心是<strong>结构化契约工作流及工业评估</strong>。与同期方法的定位属于作者描述，本文没有直接横向实验。等长度其他支架与传统分析对照缺失，也使“契约结构本身最佳”的判断需要保留。</p></div></div></section><section class="sec-card" data-index="30" data-num="8" data-heading="Conclusions" data-page="10"><div class="sec-head"><span class="sec-num">8</span><h3>Conclusions</h3><span class="sec-page">p.10</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>结论重申两阶段契约驱动测试在90个历史缺陷上提升<strong>detect@5与分支覆盖</strong>，并由模型评审取得相对基线的质量优势；契约覆盖与检测成功相关，被作者作为中间oracle有用性的证据。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>可支持的结论限于实验流程、样本和预算。结论中人工测试“优于或相当”与前文56.7%整体胜率描述略有简化，应沿用<strong>整体偏好胜率</strong>原口径。没有独立证据证明通用规格完整性、新缺陷发现或固定预算下最优。</p></div></div></section><section class="sec-card" data-index="31" data-num="" data-heading="References" data-page="10"><div class="sec-head"><span class="sec-num"></span><h3>References</h3><span class="sec-page">p.10</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>参考文献涵盖<strong>测试oracle、设计契约、真实缺陷评估、LLM规格推理与测试生成</strong>，包括Defects4J、Coverup、TestForge、SpecBench及DeepTest等。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>参考文献为理解方法来源和设计对照提供线索；此精读<strong>未逐篇核验被引研究</strong>，不将其内容当成本文额外实验结果。PDF模板中的会议名和DOI占位符不构成正式出版信息。</p></div></div></section></div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-quotes">关键引文</h3>
+        <div id="quoteContainer"><div class="field-text" style="color:var(--ink-faint);font-style:italic;">尚无关键引文。在 Zotero 高亮会自动出现在下方"Highlights from Zotero"。</div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-figures">论文图表</h3>
+        <div id="figuresContainer"><div style="color:var(--ink-faint);font-style:italic;">PDF 中未发现可提取的图表。</div></div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-highlights">Zotero 高亮</h3>
+        <div class="info-box">
+          <span class="info-label">Highlights from Zotero (0)</span>
+          <div id="highlightsBox"><div style="color:var(--ink-faint);font-style:italic;">未检测到 PDF 高亮。摘要基于 abstract 生成。</div></div>
+        </div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-notes">Zotero 笔记</h3>
+        <div class="info-box">
+          <span class="info-label">Notes from Zotero</span>
+          <div id="notesBox"><div style="color:var(--ink-faint);font-style:italic;">无 Zotero 笔记。</div></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="module reader-block" id="sec-relevance">
+      <h2 class="sec-h"><span class="sec-index">03</span><span class="sec-name">参考意义</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">把论文放回实际研究和复现决策中：它有什么价值，代价和风险是什么，还留下哪些问题。</p>
+
+      <div class="relevance-grid">
+        <div class="relevance-item">
+          <h3>风险与局限</h3>
+          <ol class="editable-list" contenteditable="true" data-field="risks"><li><strong>修复后代码边界</strong>：生成端看不到缺陷与 diff，但可读取已修复实现；该协议评估回归测试生成，对含未知缺陷源码的意图恢复与新 bug 发现没有直接实验。</li><li><strong>额外计算混杂</strong>：规格组消耗 38% 更多 token；缺少等预算基线、等长度计划、伪代码或执行轨迹对照，无法分离契约结构、额外思考与更大测试套件的贡献。</li><li><strong>规格准确性仅局部可见</strong>：Contract Coverage 检查一个历史缺陷对应的约束，没有测量所有正确契约的召回，也没有量化幻觉、过度约束或错误条件的比例。</li><li><strong>评审偏差与样本口径</strong>：测试质量与契约标签均依赖 Gemini 系列 judge；多次自一致只说明稳定性。§5.2 提到 83 个成功生成对象，但百分比汇总分母及从多次尝试选择测试的规则缺少清楚说明。</li><li><strong>统计层级与多重比较</strong>：每个缺陷有 5 次尝试，RQ3 的 450 个样本共享 bug 难度；逐尝试 Fisher 检验未体现这种聚类。表2同时比较多个 k，未见多重检验校正说明。</li><li><strong>数据与外部效度</strong>：单组织、私有单仓库及单源码文件修复筛选限制推广；缺少公开样本与完整运行脚本，难以独立重现效应值。</li><li><strong>数据污染论证不足</strong>：使用同一底模控制共同暴露风险，但不能彻底排除不同提示对记忆调用的差异；正文据此完全排除污染的表述偏强。</li></ol>
+          <div class="field-text editable" contenteditable="true" data-field="guide_limitations" data-placeholder="最重要的边界、威胁或替代解释…"><p>实验从<strong>修复后实现</strong>提取预期行为，检验历史缺陷回放能力；对含未知缺陷的当前实现直接提取契约，可能把错误行为固化进文档。样本局限于 Google 单仓库及单生产文件修复，质量和契约标签依赖同系列 LLM 评审，缺少等 token 预算对照与独立人工校验。</p></div>
+        </div>
+        <div class="relevance-item">
+          <h3>成本与复现条件</h3>
+          <div class="field-text editable" contenteditable="true" data-field="cost" data-placeholder="复现本文需要多少数据、算力、专家或工程投入…"><p><strong>最小复现需要</strong>一组可重放的缺陷/修复版本、可删除目标测试的构建环境、保持源码只读的文件审计、覆盖率工具、模型工具框架，以及双版本执行测试的基础设施。按原设置，两组各 90×5 次生成，契约与质量评审还需每项重复 5 次；生成组总 token 约 580.6M（表4两组相加），评审开销是否计入未说明。</p><p><strong>本文未提供的条件</strong>包括内部仓库与 issue 数据、完整提示、停止/重试策略、wall-clock 时间、美元费用、各语言依赖、被剔除运行数量与精确模型版本端点；不能据此承诺逐项复现。独立复现可在公开真实缺陷集实施相同回放协议，并加入等 token 基线、人工契约标注和按 bug 聚类的统计分析；这是后续设计建议。</p></div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>与我研究的关联</h3>
+          <div class="key-concept">
+            <span class="kc-label">Why this matters</span>
+            <div class="field-text editable" contenteditable="true" data-field="relevance_to_my_work" data-placeholder="与当前研究的具体问题、设计选择或测量难题的关联…"><p>一般研究意义在于把智能体流水线中的<strong>约束提取与执行落实分开衡量</strong>。对测试生成、程序理解或带验证器的数据构造，可同时保留“行为约束→触发输入→可执行断言→双版本结果”的可追溯链，并分别统计约束遗漏、输入不充分和断言过弱。若借用 Contract Coverage，应同步评估契约精度并限定它的缺陷条件化范围；若用于合成训练数据，应通过独立执行筛掉看似合理却无法触发行为差异的样本。这些是由论文方法引出的设计建议，未关联任何特定个人研究项目。</p></div>
+          </div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3 id="sub-questions">待追问</h3>
+          <ol class="editable-list" contenteditable="true" data-field="open_questions"><li>在相同总token预算下，让直接生成基线增加采样或自检，能否达到相同缺陷检出率？</li><li>把契约替换成等长度测试计划、伪代码或执行轨迹，收益是否保留？</li><li>从包含未知缺陷的当前实现推断契约时，如何利用独立需求避免把错误实现写成预期行为？</li><li>对每条契约强制绑定触发输入与断言，能否减少37次输入不充分和36次场景遗漏？</li><li>同时测量契约精度、目标约束召回与错误建议损害，如何选择契约的最佳粒度？</li><li>按bug聚类重新估计RQ3关联，并由独立人工复核后，相关强度及显著性是否稳定？</li><li>在公开多文件缺陷、增量测试扩充、其他模型及跨组织仓库上，成本与效果如何变化？</li></ol>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>我的笔记</h3>
+          <div class="key-concept">
+            <span class="kc-label">Your notes · 支持 Markdown 与 LaTeX 公式</span>
+            <div class="field-text editable" contenteditable="true" data-field="custom_notes" data-placeholder="你自己的笔记、公式、待办… 行内用 $…$，独立公式用 $$…$$"><p><strong>阅读版本与来源</strong>：<a href="https://arxiv.org/html/2608.17177v1" target="_blank" rel="noopener noreferrer">arXiv:2608.17177v1</a>，2026-08-17；作者 Michele Tufano 等，Google。正文与结果基于本地 PDF 的 Python 文本提取，保留全部章节及小节，未使用图片推断。</p><p><strong>四组数字的阅读口径</strong>：63.2%是多次生成预算下的历史缺陷检出估计；48.9%是生成测试的平均分支覆盖；78.9%是五次规格中至少命中目标缺陷约束的覆盖指标；77.8%是模型对测试套件的整体偏好。它们对应不同对象与评估步骤，不能相互替代。</p><p><strong>一个机制示例（依据原文Listing 1改述）</strong>：添加客户的方法要求数据库连接可用；非法电话与空姓名应报错，成功添加返回空值。已有电话错误测试时，空姓名仍可能没有断言。规格把“空姓名→特定异常”写成条件与建议，后续测试需要实际构造空姓名、调用方法并检查异常类型。这说明约束、触发输入与判定断言三个环节各自都有遗漏风险。</p><p><strong>阅读判断</strong>：最扎实的证据来自双版本可执行测试与配对比较；最需要补充的证据是等预算消融、独立契约精度评估，以及含未知缺陷源码上的验证。</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <nav class="footnav">
+      <div>GENERATED 2026-11-03T18:49:49+0800 &middot; paper-notes</div>
+      <a href="../dashboard.html">← Back to Dashboard</a>
+    </nav>
+
+  </main>
+
+  <aside class="notes" id="notes">
+    <div class="notes-head">
+      <span class="notes-title">批注 · Notes</span>
+      <span class="notes-count" id="notesCount">0</span>
+    </div>
+    <div class="notes-list">
+      <div class="note-card" data-module="sec-overview">
+        <button class="note-jump" data-target="sec-overview" type="button"><span class="note-num">01</span><span class="note-name">论文速览</span></button>
+        <textarea class="note-area" data-module="sec-overview" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-deepread">
+        <button class="note-jump" data-target="sec-deepread" type="button"><span class="note-num">02</span><span class="note-name">原文精读</span></button>
+        <textarea class="note-area" data-module="sec-deepread" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-relevance">
+        <button class="note-jump" data-target="sec-relevance" type="button"><span class="note-num">03</span><span class="note-name">参考意义</span></button>
+        <textarea class="note-area" data-module="sec-relevance" placeholder="对这一模块的备注…"></textarea>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importInput" accept=".json" style="display:none">
+
+<div class="lb-overlay" id="lbOverlay" aria-hidden="true">
+  <button class="lb-close" id="lbClose" type="button" aria-label="Close">×</button>
+  <div class="lb-stage">
+    <img class="lb-img" id="lbImg" alt="enlarged figure" src="">
+    <div class="lb-caption" id="lbCaption"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var ZKEY = "local-68739ddc";
+  var LS_KEY = "litreader:" + ZKEY + ":edits";
+  var LS_STATUS = "litreader:" + ZKEY + ":status";
+  var LS_ACCENT = "litreader:" + ZKEY + ":accent";
+  var LS_DIR = "litreader:" + ZKEY + ":dirhandle";
+  var INITIAL = {"objective": "在 Google 90 个历史缺陷的修复后代码盲测中，先生成半形式化行为契约再生成测试，将五次尝试缺陷检出率从 53.4% 提高至 63.2%，代价是约 38% 的额外 token。", "problem_landscape": "行覆盖和可编译性无法保证测试能识别语义错误。传统动态约束挖掘依赖实际执行，可能学习到错误实现的行为；LLM 可以结合文档、注释、调用方与代码推断意图，但这种能力缺少显式约束。本文把**预期行为的表达**作为生成测试前必须完成的任务，并考察该结构化步骤是否改善真实缺陷检测。", "approach": "**1. 规格表示。** 对代码单元 $c$，$S_c=\\langle D_c,Pre_c,Post_c,Sug_c\\rangle$：$D_c$ 描述意图，$Pre_c$ 列执行前状态与输入约束，$Post_c$ 列成功结果、错误处理与副作用，$Sug_c$ 将缺失验证的条件转成具体测试建议。框架可将条件标记为 Tested/Untested；覆盖所有公共和私有方法依赖提示，未用程序强制检查。\n\n**2. 从约束到测试。** 第一阶段聚合代码、注释、文档及可用上下文，推断契约并产生建议；第二阶段逐条构造输入、实现断言、构建并运行测试。框架允许在中间插入人工修订，本实验接受所有模型建议并完全跳过该环节。两组均可创建临时计划、草稿和规格文件，基线也允许原生推理。\n\n**3. 受控比较。** 两组均用 Gemini 3 Flash，Temperature=1.0、TopP=1.0、TopK=50，具备相同文件浏览、检索、写入、命令执行和 `run_test` 工具。差别是规格组必须先完成契约。没有报告等 token 上限或为基线补足额外推理预算的实验。\n\n**4. Greenfield 隔离。** 提供修复后代码 $C_f$，删除目标既有测试得到 $T_\\varnothing$，生成 $T_{gen}=A(C_f,T_\\varnothing)$。生成阶段隐藏 bug、提交信息、修复 diff；评估阶段先在 $C_f$ 验证通过并测覆盖，再将源码回退为 $C_b$，保留生成的测试和允许的 BUILD 修改。成功要求 $Pass(T_{gen},C_f)\\land\\exists t\\in T_{gen}:Fail(t,C_b)$；**编译失败不计为发现缺陷**。\n\n**5. 防篡改与评审。** 运行后审计文件操作；若改动被测源码或其他既有源码，丢弃该次尝试且不补跑。测试质量由匿名、随机顺序的 Gemini 3.1 Pro 成对比较，各维度进行 5 次评审与严格多数投票；契约评审额外获得 bug 描述、提交说明和真实修复 diff，这些信息仅用于事后评估。", "impact": "提出可落盘、可审阅的 **`.spec.md` 契约中间产物**与“提取规格→实现测试”的工作流；用真实工业历史缺陷对比直接测试生成；提出面向已知缺陷的 **ContractCoverage@k**，把 oracle 提取失败与测试实现失败区分开。方法继承设计契约思想，采用自然语言约束，未建立可机检的形式证明，也未验证契约与实现的全量一致性。", "risks": ["**修复后代码边界**：生成端看不到缺陷与 diff，但可读取已修复实现；该协议评估回归测试生成，对含未知缺陷源码的意图恢复与新 bug 发现没有直接实验。", "**额外计算混杂**：规格组消耗 38% 更多 token；缺少等预算基线、等长度计划、伪代码或执行轨迹对照，无法分离契约结构、额外思考与更大测试套件的贡献。", "**规格准确性仅局部可见**：Contract Coverage 检查一个历史缺陷对应的约束，没有测量所有正确契约的召回，也没有量化幻觉、过度约束或错误条件的比例。", "**评审偏差与样本口径**：测试质量与契约标签均依赖 Gemini 系列 judge；多次自一致只说明稳定性。§5.2 提到 83 个成功生成对象，但百分比汇总分母及从多次尝试选择测试的规则缺少清楚说明。", "**统计层级与多重比较**：每个缺陷有 5 次尝试，RQ3 的 450 个样本共享 bug 难度；逐尝试 Fisher 检验未体现这种聚类。表2同时比较多个 k，未见多重检验校正说明。", "**数据与外部效度**：单组织、私有单仓库及单源码文件修复筛选限制推广；缺少公开样本与完整运行脚本，难以独立重现效应值。", "**数据污染论证不足**：使用同一底模控制共同暴露风险，但不能彻底排除不同提示对记忆调用的差异；正文据此完全排除污染的表述偏强。"], "cost": "**最小复现需要**一组可重放的缺陷/修复版本、可删除目标测试的构建环境、保持源码只读的文件审计、覆盖率工具、模型工具框架，以及双版本执行测试的基础设施。按原设置，两组各 90×5 次生成，契约与质量评审还需每项重复 5 次；生成组总 token 约 580.6M（表4两组相加），评审开销是否计入未说明。\n\n**本文未提供的条件**包括内部仓库与 issue 数据、完整提示、停止/重试策略、wall-clock 时间、美元费用、各语言依赖、被剔除运行数量与精确模型版本端点；不能据此承诺逐项复现。独立复现可在公开真实缺陷集实施相同回放协议，并加入等 token 基线、人工契约标注和按 bug 聚类的统计分析；这是后续设计建议。", "experiments_results": "**检测曲线（表2）。** 基线/规格组 `detect@1…5` 依次为 **36.9/41.1、45.3/51.3、49.4/56.6、51.8/60.5、53.4/63.2%**；对应增益 4.2、6.0、7.2、8.7、9.8 个百分点，McNemar p 值为 0.3075、0.4545、0.0574、0.0352、0.0352。`k=5` 的 95% CI 分别为 [43.3%,63.3%] 和 [53.3%,73.3%]。两组共同检出 45 个，规格组独有 12 个，基线独有 3 个；原始并集计数为 48 与 57，表中 bootstrap 点估计与直接相除存在小幅差异。\n\n**可运行性与结构覆盖（表1、3）。** `pass@1` 为 94.4% 与 94.2%，`pass@5` 均为 98.9%。行覆盖 74.8%→74.4%，Wilcoxon $p=0.3659$；分支覆盖 46.4%→48.9%，$p=0.0034$，95% CI 为 [39.6%,53.3%] 与 [41.4%,56.4%]。覆盖值是每个 bug 的 5 次运行先取均值，再跨 bug 聚合，不能与多套测试合并覆盖混用。\n\n**质量偏好（§5.2）。** 模型评审相对基线的规格组胜率为最佳实践 65.6%、可读性 68.9%、边界覆盖 83.3%、整体 77.8%；相对人工测试整体 56.7%。作者报告评审自一致性 ≥90%、平局 ≤5.6%。这些数据衡量评审模型偏好，未直接建立人工工程质量等效。\n\n**契约命中与转化（§5.3）。** `ContractCoverage@1/2/5` 为 61.1%/69.7%/78.9%，@5 的 CI 为 [70.0%,86.7%]。覆盖目标契约的 275 次中检出 151 次（54.9%），未覆盖的 175 次中检出 34 次（19.4%）；Fisher $p=3.62\\times10^{-14}$，$\\phi=0.35$。剩余 265 次未检出，正文拆为 141 次规格遗漏、110 次语义性测试失败与 14 次框架/编译失败；个别分类描述存在冲突，详见不确定性。\n\n**成本（表4）。** 基线总 token 243.9M、规格组 336.7M，增加 38.0%；输入 224.4M→305.7M，输出 19.5M→31.0M。每个独立检出 bug 的 token 从约 5.1M 升至 5.9M（+16.2%）。按表中总量计算，额外 92.8M token 换来净增 9 个检出缺陷，约 **10.3M token/净增缺陷**，这是派生统计，未折算费用与延迟。", "relevance_to_my_work": "一般研究意义在于把智能体流水线中的**约束提取与执行落实分开衡量**。对测试生成、程序理解或带验证器的数据构造，可同时保留“行为约束→触发输入→可执行断言→双版本结果”的可追溯链，并分别统计约束遗漏、输入不充分和断言过弱。若借用 Contract Coverage，应同步评估契约精度并限定它的缺陷条件化范围；若用于合成训练数据，应通过独立执行筛掉看似合理却无法触发行为差异的样本。这些是由论文方法引出的设计建议，未关联任何特定个人研究项目。", "custom_notes": "**阅读版本与来源**：[arXiv:2608.17177v1](https://arxiv.org/html/2608.17177v1)，2026-08-17；作者 Michele Tufano 等，Google。正文与结果基于本地 PDF 的 Python 文本提取，保留全部章节及小节，未使用图片推断。\n\n**四组数字的阅读口径**：63.2%是多次生成预算下的历史缺陷检出估计；48.9%是生成测试的平均分支覆盖；78.9%是五次规格中至少命中目标缺陷约束的覆盖指标；77.8%是模型对测试套件的整体偏好。它们对应不同对象与评估步骤，不能相互替代。\n\n**一个机制示例（依据原文Listing 1改述）**：添加客户的方法要求数据库连接可用；非法电话与空姓名应报错，成功添加返回空值。已有电话错误测试时，空姓名仍可能没有断言。规格把“空姓名→特定异常”写成条件与建议，后续测试需要实际构造空姓名、调用方法并检查异常类型。这说明约束、触发输入与判定断言三个环节各自都有遗漏风险。\n\n**阅读判断**：最扎实的证据来自双版本可执行测试与配对比较；最需要补充的证据是等预算消融、独立契约精度评估，以及含未知缺陷源码上的验证。", "guide_background": "生成可编译、可通过的单元测试已经较容易，真正困难的是写出能区分正确行为与错误行为的**测试判定依据（oracle）**。直接读代码生成测试时，智能体可能停留在正常路径，遗漏输入边界、异常条件和状态副作用。设计契约为这些行为提供了表达方式，但已有系统通常缺乏可直接使用的契约，因此作者让智能体先从代码与上下文中提炼契约，再据此生成测试。", "guide_question": "在相同模型与工具框架下，强制智能体先生成包含**前置条件、后置条件与测试建议**的半形式化文档，能否比直接生成测试更有效地覆盖分支并检出真实历史缺陷？生成文档是否写到了该缺陷违反的约束，又有多少约束能够转化为有效测试？", "guide_approach": "1. **把行为要求写成中间产物**：为函数、方法和类建立 $S_c=\\langle D_c,Pre_c,Post_c,Sug_c\\rangle$，分别记录行为描述、执行前约束、执行后保证与对应测试建议；条件使用自然语言，落盘为 `.spec.md`。\n2. **用修复后代码进行盲测生成**：选择 Google 内部 90 个历史缺陷，每个方案各尝试 5 次；提供修复后代码并移除目标组件既有测试，隐藏缺陷描述、提交说明和修复差异。两组均使用 Gemini 3 Flash，实验跳过人工契约修订。\n3. **通过版本回退验证缺陷检出**：测试须先在修复版通过，再在回退后的缺陷版触发运行失败；同时统计分支覆盖，用 Gemini 3.1 Pro 多次评审测试质量与目标缺陷的契约覆盖情况。", "guide_findings": "1. **五次尝试提高历史缺陷检出率**：`detect@5` 从 **53.4% 升至 63.2%**，增加 9.8 个百分点，McNemar $p=0.0352$；单次仅从 36.9% 升至 41.1%，差异不显著。五次运行实际检出缺陷为 48 个与 57 个。\n2. **收益主要体现在分支与边界行为**：平均分支覆盖率由 **46.4% 升至 48.9%**，$p=0.0034$；行覆盖率从 74.8% 降至 74.4%，差异不显著。两组 `pass@5` 均为 98.9%。\n3. **契约覆盖与检出相关，转化仍有损耗**：450 次尝试中，写到目标契约时检出率为 **151/275=54.9%**，未写到时为 **34/175=19.4%**；这是相关性分析。即使写对契约，仍有大量输入构造、场景落实和断言失败。\n4. **质量偏好伴随额外成本**：LLM 评审报告相对基线总体胜率 77.8%，相对人工测试 56.7%；总 token 从 243.9M 增至约 336.7M（**+38%**），每个检出缺陷的 token 成本约增加 16.2%。", "guide_insight": "显式契约提供了一个可检查的**语义中间层**，使失败可以分解为“未提取关键约束”和“约束未落实为有效输入及断言”。执行结果支持整套两阶段流程在该历史缺陷任务上的收益；契约本身的独立因果贡献仍需等预算、等长度的计划或伪代码对照。契约覆盖率只评估是否命中一个已知缺陷对应的约束，不能据此断言整个组件的规格完整或正确。", "guide_limitations": "实验从**修复后实现**提取预期行为，检验历史缺陷回放能力；对含未知缺陷的当前实现直接提取契约，可能把错误行为固化进文档。样本局限于 Google 单仓库及单生产文件修复，质量和契约标签依赖同系列 LLM 评审，缺少等 token 预算对照与独立人工校验。", "paper_type": ["method", "empirical"], "keywords": ["测试生成", "半形式化规格", "设计契约", "测试判定依据", "软件智能体", "历史缺陷检测", "契约覆盖率"], "research_question": "**RQ1** 检验两阶段流程对历史缺陷检出与结构覆盖的影响；**RQ2** 用模型成对评审比较测试的最佳实践、可读性、边界覆盖与整体质量；**RQ3** 检查生成规格是否描述目标缺陷违反的契约，并拆解失败；**RQ4** 统计额外 token 与单位检出成本。核心比较针对自动化流程，人工修订环节未纳入实验。", "data_or_materials": "**90 个 Google 内部历史 bug-fix 对**，来自内部问题跟踪系统，覆盖 C++、Java、Python、Go。筛选条件为人工报告、修复已确认、运行失败可复现，且修复只更改一个生产源码文件、对应测试文件和可选 BUILD 文件；排除简单语法修复、多媒体处理及涉及个人身份信息的缺陷。每个缺陷、每组 5 次生成，共 **900 次名义生成尝试**；RQ3 使用规格组的 450 次尝试。文中未提供各语言及领域的样本分布、完整候选筛选数量或公开可下载数据集。", "interpretation": "可执行证据支持：在该内部样本、相同基础模型和 greenfield 修复后代码协议下，**完整规格驱动流程**提高高采样预算下的历史缺陷检出与平均分支覆盖。契约命中和检出之间存在中等相关，且二者存在明显转化损失。证据尚未确认契约表达的独立因果优势、对未知缺陷的发现能力、人工质量等效或预算固定时的最优性。", "evidence_map": [{"claim": "90个内部历史缺陷；每组相同模型工具；不使用人工修订", "evidence": "§4.1–4.2, p.4", "status": "reported"}, {"claim": "修复后代码生成、隐藏缺陷资料、删除既有测试、回退源码验证", "evidence": "§4.3–4.3.1, pp.4–5", "status": "reported"}, {"claim": "detect@5增加9.8个百分点，单次差异不显著", "evidence": "表2与§5.1.2, pp.6–7；McNemar p=0.0352与0.3075", "status": "reported"}, {"claim": "共同检出45，规格独有12，基线独有3", "evidence": "§5.1.2 Uniquely Detected Bugs, p.6", "status": "reported"}, {"claim": "平均分支覆盖增加2.5个百分点，行覆盖无显著收益", "evidence": "表3与§5.1.3, pp.7–8", "status": "reported"}, {"claim": "相对基线77.8%、相对人工56.7%的整体偏好", "evidence": "§5.2–5.2.1, pp.7–8；由LLM judge评估", "status": "reported"}, {"claim": "契约覆盖与检出率54.9%/19.4%的关联", "evidence": "§5.3.1, p.8；151/275与34/175，phi=0.35", "status": "reported"}, {"claim": "这组关联不能单独证明契约命中导致检出", "evidence": "§5.3.1按尝试观察性分组；没有随机干预契约内容或控制bug难度", "status": "supported_inference"}, {"claim": "总token增加约38%，每检出bug成本增加16.2%", "evidence": "表4, p.9；正文存在336.6M/336.7M小幅不一致", "status": "reported"}, {"claim": "额外token/净增检出约10.3M，不能替代等预算比较", "evidence": "由表4 (336.7−243.9)M/(57−48)派生；基线额外采样曲线缺失", "status": "supported_inference"}, {"claim": "可将契约、输入和断言串成数据质量筛选链", "evidence": "由§3与§5.3失败分解启发；本文没有训练数据构造实验", "status": "speculation"}], "uncertainties": ["§5.2称比较83个成功生成测试对象，§4.4.2又以每个agent run评审后按bug聚合描述；77.8%、56.7%等比率的精确分母、无效对象处理及多次生成选择规则无法从正文重建。", "§5.3.3称110次测试生成失败排除编译/框架失败14次，但其五类中又列Invalid Test Code（5次）并明确称导致编译失败；保留原始计数并标记分类边界冲突，不将其解释为一致的纯语义分类。", "表4总token为336.7M，正文写336.6M；输出表为31.0M/19.5M，正文为30.9M/19.4M。笔记统一按表值计算，并保留取整/口径不一致。", "表2的bootstrap点估计63.2%/53.4%与57/90、48/90直接比例有轻微区别；k\u003c5如何组合五次样本与统计列联表的完整算法未详细提供。", "违规修改源码的尝试会被剔除且不补跑，但两组分别剔除多少、这些尝试如何进入各指标分母未说明。", "未见逐语言分层结果、人工盲评、契约精度/幻觉率、等计算预算消融或未知缺陷在线发现实验。", "450次尝试级关联未报告按90个bug聚类的区间或检验；显著性数值可能低估重复测量相关性。", "PDF保留Conference’17及ACM DOI占位符；只按arXiv:2608.17177v1、2026-08-17记录，不推断已正式录用或出版。", "没有Zotero标注；全部精读来自Python提取的PDF文本，没有通过图像像素补充结论。"], "open_questions": ["在相同总token预算下，让直接生成基线增加采样或自检，能否达到相同缺陷检出率？", "把契约替换成等长度测试计划、伪代码或执行轨迹，收益是否保留？", "从包含未知缺陷的当前实现推断契约时，如何利用独立需求避免把错误实现写成预期行为？", "对每条契约强制绑定触发输入与断言，能否减少37次输入不充分和36次场景遗漏？", "同时测量契约精度、目标约束召回与错误建议损害，如何选择契约的最佳粒度？", "按bug聚类重新估计RQ3关联，并由独立人工复核后，相关强度及显著性是否稳定？", "在公开多文件缺陷、增量测试扩充、其他模型及跨组织仓库上，成本与效果如何变化？"], "key_quotes": [], "module_notes": {}, "schema_version": 4, "zotero_key": "local-68739ddc", "sections": [{"heading": "Abstract", "number": "", "page": 1, "level": 2, "summary": "提出先记录代码的前置条件、后置条件与未定义行为，再生成测试的**两阶段流程**。摘要概括90个工业历史缺陷上的9.8个百分点检测增益、2.5个百分点分支增益及模型质量偏好。", "analysis": "摘要压缩了实验边界。**9.8个百分点对应k=5**，56.7%来自LLM对人工测试的偏好；单次尝试、等预算收益与人工工程质量等效需要分别核实。"}, {"heading": "Introduction", "number": "1", "page": 1, "level": 2, "summary": "引言将测试生成难点归于**缺少预期行为的显式锚点**：模型可执行代码并生成表面测试，却可能漏掉边界。作者借鉴Design by Contract，让智能体先写半形式化规格，并把规格驱动流程、契约覆盖率和工业评估列为贡献。", "analysis": "引言建立了“表达约束→更有针对性的测试→更多缺陷检出”的机制假设。后文直接比较的是整套流程；**认知支架的独立作用**尚未通过等预算或其他结构化计划消融识别。"}, {"heading": "Semi-Formal Specifications for API behavior", "number": "2", "page": 2, "level": 2, "summary": "定义每个代码单元的规格为 $S_c=\\langle D_c,Pre_c,Post_c,Sug_c\\rangle$，包含意图、前置条件、后置条件和测试建议。条件用自然语言写入**`.spec.md`**，可标记已测/未测并关联测试。作者认为注释、文档与调用点可帮助推断开发者意图；客户数据库示例展示空姓名异常缺少测试时如何产生建议。", "analysis": "形式化元组规定了**文档结构**，未使自然语言条件自动可判定，也未证明它们与需求一致。测试建议有助于连接约束与代码，但错误意图、过度规格和条件遗漏仍需外部检查。示例允许已有测试；实际greenfield评估移除了目标既有测试，应区分框架功能与实验条件。"}, {"heading": "Proposed Approach", "number": "3", "page": 2, "level": 2, "summary": "总览把输入代码经由**规格提取与测试生成**转化为测试套件。Listing 1中，已有无效电话和成功路径测试，空姓名错误条件被标为未测并给出具体建议；该可读文档承担中间计划作用。", "analysis": "该节展示预期工作流和示例，没有新增效果实验。文本中的“空姓名→异常”说明为什么中间产物能被审核；**规格可审阅性与实际审核收益**仍是不同命题，后者未在自动化实验中测量。"}, {"heading": "Phase I: Specification Extraction", "number": "3.1", "page": 3, "level": 3, "summary": "第一阶段依次聚合上下文、推断前后置条件、对照可用测试标记覆盖、为未测条件生成建议。目标覆盖所有公共、私有方法及辅助函数，形成**完整的代码单元规格集合**。", "analysis": "覆盖全部方法依赖提示，作者明确说**未程序化强制覆盖**。后文35次方法遗漏与这一设计缺口呼应。适用时可通过代码符号清单检查契约条目，但这属于改进建议，原方法没有实施证据。"}, {"heading": "Human-in-the-Loop Specification Curation", "number": "3.2", "page": 3, "level": 3, "summary": "在规格完成后，开发者可修改条件并接受、拒绝或修订测试建议，再进入代码生成。该环节利用了规格的**人类可读性**。", "analysis": "这是框架支持的可选接口；§4.2的比较**跳过人工干预**。因此不能将实验效果归因于专家校正，也不能据此估算人工审核所需时间或收益。"}, {"heading": "Phase II: Oracle-Driven Test Generation", "number": "3.3", "page": 3, "level": 3, "summary": "第二阶段以规格和现有测试为输入，依次落实未测条件对应的建议，完成输入构造、单元断言、构建及验证。生成测试之前必须完成规格，使上下文包含**显式边界条件**。", "analysis": "执行建议仍需要解决可达性、复杂fixture与严格断言。后文110次测试阶段失败表明**写出契约不保证生成可检出测试**。一般流程描述为扩充既有测试，实验则从空目标重建，两者推广范围不同。"}, {"heading": "Empirical Design", "number": "4", "page": 3, "level": 2, "summary": "提出四个研究问题：**缺陷检测与覆盖、测试质量、契约准确性和token成本**。研究选择真实工业故障，以检验隐式状态依赖与边界违反，而非只看生成代码是否通过。", "analysis": "四类证据互相补充：执行指标约束效果，评审指标描述偏好，规格分析提供诊断，成本约束实用性。需要保持不同样本单位，特别是**按bug聚合结果与逐次尝试标签**的区别。"}, {"heading": "Dataset Collection", "number": "4.1", "page": 4, "level": 3, "summary": "数据来自Google内部问题系统，含**90个已确认且可复现的历史修复**，语言含C++、Java、Python、Go。仅保留单生产源码文件、相应测试及可选BUILD更改，排除语法小修、多媒体和个人信息问题。", "analysis": "真实缺陷增强实际语义复杂性；单文件、可复现、可识别测试目标的筛选也限制外推。缺少语言分布、领域分层及候选流失统计，**多语言存在**不足以证明各语言上的效果一致。数据私有降低独立复核能力。"}, {"heading": "Agent Configurations", "number": "4.2", "page": 4, "level": 3, "summary": "两组共用**Gemini 3 Flash**、相同工具与推理参数（T=1.0、TopP=1.0、TopK=50）。基线分析源码、写测试并运行验证；规格组增加强制的规格阶段。为减少人工混杂，两组比较中跳过HITL。", "analysis": "模型、工具控制使比较具备清楚的流程层解释；规格组额外使用token，尚未控制**计算量与结构化内容**的区别。基线也具备推理能力，不能把它理解为完全没有计划或思考的单次代码补全。"}, {"heading": "Greenfield Test Generation Setup", "number": "4.3", "page": 4, "level": 3, "summary": "生成端只得到修复后源码 $C_f$ 与空测试目标。隐藏缺陷描述、提交信息和修复diff；先运行生成测试验证修复版通过并记录覆盖，再反向应用补丁得到 $C_b$。只有测试**在修复版通过、在缺陷版运行失败**才算检出，编译失败排除。", "analysis": "协议隔离已知bug信息并提供可执行真值，能检验测试对历史行为差异的敏感性。模型读取**修复后实现**已获得正确行为的重要线索；该结果对未知bug源码上的独立oracle恢复与新缺陷发现没有直接结论。文中目标测试移除不等同于整个仓库所有辅助上下文均不可见。"}, {"heading": "Post-execution sanity checks", "number": "4.3.1", "page": 5, "level": 4, "summary": "运行后审计文件操作，修改被测源码或其他既有源码的尝试被**丢弃且不补跑**；只允许改目标测试和必要BUILD。两组都允许创建规格、草稿和任务清单等临时文件。", "analysis": "审计避免智能体篡改被测代码制造虚假故障，但被剔除运行数量及其分母处理未明确。两组均可写规格表明主要处理差异是**强制流程与指令**，不能简单归为一组拥有文档工具、另一组没有。"}, {"heading": "Evaluation Protocol and Metrics", "number": "4.4", "page": 5, "level": 3, "summary": "该父节组织**定量指标、质量评审和契约评审**三个小节，本段本身只含标题。具体定义与统计过程在随后小节展开。", "analysis": "保留原始层级以免将后续小节误当独立主节。该段**没有独立证据**；评估有效性需结合4.4.1–4.4.3的输入、单位与标签定义判断。"}, {"heading": "RQ1: Quantitative Effectiveness", "number": "4.4.1", "page": 5, "level": 4, "summary": "每个缺陷每组独立采样5次。`pass@k`衡量修复版可通过性；`detect@k`衡量k次内得到有效故障测试的概率；另统计行、分支覆盖。按**90个bug进行10,000次bootstrap**估计区间，检出采用McNemar，连续覆盖采用配对Wilcoxon。", "analysis": "以bug为bootstrap单位避免把所有运行当完全独立任务，但没有详细给出各k估计与列联表构建的完整实现。`pass@k`衡量存在可通过套件的机会，**不等于正确性或发现bug的能力**。多个k同时检验时也应考虑多重比较。"}, {"heading": "RQ2: Qualitative Test Rigor via LLM-as-a-Judge", "number": "4.4.2", "page": 5, "level": 4, "summary": "用更强的**Gemini 3.1 Pro**匿名成对评估，随机测试A/B顺序，比较最佳实践、可读性、边界覆盖与整体偏好。每维度5次调用严格多数投票，无多数视为平局；评分规则浓缩自Google测试实践，并同样比较人工测试。", "analysis": "随机顺序和重复投票降低位置偏差与随机噪声，**不能直接校准质量真值**。同系列模型可能共享风格偏好；边界评审与规格表述契合也可能使该维度偏向处理组。公开独立人工复核与分母、套件选择规则有助于解释胜率。"}, {"heading": "RQ3: Specification Accuracy and Contract Coverage", "number": "4.4.3", "page": 5, "level": 4, "summary": "定义**ContractCoverage@k**：k次规格中能否描述目标历史缺陷违反的行为约束。事后judge读取bug描述、提交说明、修复diff和规格，重复5次多数投票；另将失败分为规格遗漏或测试落实失败。作者明确该指标需要已知修复，且只覆盖目标缺陷相关边界。", "analysis": "生成端与评审端的信息权限必须分开：judge可看修复diff不代表智能体生成时看过。该指标是**缺陷条件化的局部召回代理**，没有完整契约集合的分母，也没有精度；一份包含大量幻觉的规格仍可能命中目标约束。"}, {"heading": "Evaluation Results", "number": "5", "page": 6, "level": 2, "summary": "该节开始报告工业研究结果，随后依次回答**RQ1至RQ4**，包括检测、覆盖、质量、规格诊断和token成本。", "analysis": "本父节只是结果入口，不单独提供数据。应按后续指标各自的**统计单位与生成预算**解释，避免把成本、模型偏好和可执行检出汇成一个“准确率”。"}, {"heading": "RQ1: Quantitative Effectiveness", "number": "5.1", "page": 6, "level": 3, "summary": "RQ1分成**缺陷检出能力与结构覆盖**，在k=1至5的独立尝试预算下比较两组，并先检查测试可运行性。", "analysis": "不同k共享同一批缺陷与生成样本，曲线上的各点并非独立复制实验。随着采样增加，优势扩大支持预算与流程可能存在交互，仍需**等总成本曲线**确认实际资源配置优势。"}, {"heading": "Test Suite Pass Rate (pass@k)", "number": "5.1.1", "page": 6, "level": 4, "summary": "表1的基线/规格组`pass@1…5`为**94.4/94.2、98.0/97.8、98.4/98.3、98.7/98.7、98.9/98.9%**。作者据此认为两组基本代码生成能力相当，契约阶段没有降低生成可运行测试的机会。", "analysis": "通过率几乎相等使“只是改善编译率”的解释不充分，但通过率属于**饱和的有效性指标**，不能仅凭它证明全部检出增益都由契约语义机制产生。高通过率也可能来自未覆盖关键行为的容易测试。"}, {"heading": "Fault Detection Rate (detect@k)", "number": "5.1.2", "page": 6, "level": 4, "summary": "表2中`detect@1…5`由**36.9→41.1、45.3→51.3、49.4→56.6、51.8→60.5、53.4→63.2%**，增益逐步扩大；p值为0.3075、0.4545、0.0574、0.0352、0.0352。k=5共同检出45个，规格独有12个，基线独有3个。极端难度（全部检出或全部失败）的bug从59/90降至52/90，作者解释为部分困难bug转入偶尔可检出状态。", "analysis": "显著性主要在**k=4、5**，不能把9.8个百分点当作单次收益。k=5的区间较宽：基线[43.3,63.3]%、规格[53.3,73.3]%。配对检验利用同一bug上的成败，区间重叠本身不否定差异。规格组未完全支配基线，3个独有缺陷表明两者探索仍有互补；“更难”解释来自样本内频率，未独立标注缺陷难度。"}, {"heading": "Structural Coverage", "number": "5.1.3", "page": 7, "level": 4, "summary": "覆盖率针对固定版本的目标源码，先对每个bug的5次运行取平均，再跨bug汇总。行覆盖**74.8%→74.4%**，p=0.3659；分支覆盖**46.4%→48.9%**，p=0.0034。作者认为规格更能引导边界与复杂控制流。", "analysis": "分支增加而行覆盖基本不变与更细的条件探索相容；覆盖变化仍无法单独证明缺陷发现的具体中介机制。此处报告的是**平均单次套件覆盖**，不是5套测试合并后可达到的覆盖率，不能拿它直接估算组合测试的覆盖上限。"}, {"heading": "RQ2: Qualitative Test Rigor", "number": "5.2", "page": 7, "level": 3, "summary": "质量比较涉及文中所称**83个成功生成的测试对象**，与基线及原始人工测试分别比较。作者报告五次评审的自一致性≥90%，平局≤5.6%。", "analysis": "这里的83与后续77.8%、56.7%等百分比缺少明确的**分母对应关系**，并且“test”是否指整套测试与选取哪次运行未充分说明。高自一致说明judge稳定，不说明与人类评审一致；结论应限定为模型偏好。"}, {"heading": "Qualitative Evaluation Results", "number": "5.2.1", "page": 7, "level": 4, "summary": "相对基线，规格组在最佳实践、可读性、边界覆盖和整体的偏好率分别为**65.6%、68.9%、83.3%、77.8%**；相对人工整体为56.7%。作者列举更精确断言、局部factory、异常路径与稳定并发同步等优点，同时承认复杂状态/时区场景不足及偶尔利用反射绕过封装。", "analysis": "解释性例子揭示质量维度的取舍；模型偏好可能奖励分解与命名，却无法替代长期维护效果。**复杂状态推理与封装纪律**仍是明确弱点。相对人工56.7%没有人工盲评、置信区间和统计等效检验，不足以推导普遍人类水平。表3浮动排版落在本段中，其覆盖值按5.1.3解释。"}, {"heading": "RQ3: Specification Accuracy", "number": "5.3", "page": 8, "level": 3, "summary": "RQ3在规格组**5×90=450次尝试**上分析规格是否建立了能捕获目标缺陷的oracle，并进一步解释未检出原因。", "analysis": "此处样本单位从每个bug切换为每次尝试。重复尝试共享同一个缺陷难度、代码和约束，**聚类相关性**会影响后续逐尝试统计推断，不能把450完全当独立缺陷。"}, {"heading": "Contract Coverage and Bug Detection", "number": "5.3.1", "page": 8, "level": 4, "summary": "`ContractCoverage@1/2/5`为**61.1%、69.7%、78.9%**。450次中目标契约覆盖275次，检出151次（54.9%）；未覆盖175次，检出34次（19.4%）。Fisher p=$3.62\\times10^{-14}$、Phi=0.35。作者将缺契约仍检出的34次解释为结构覆盖或崩溃检查偶然触发。", "analysis": "这是**观察到的中等相关性**：易理解bug可能同时更容易写契约和测试。没有随机删除/替换契约或控制缺陷固定效应，不能把54.9%与19.4%的差直接当因果效应。目标契约覆盖后仍有124次未检出，说明表示到执行存在明显瓶颈；偶然触发的机制解释也缺乏逐例独立验证。"}, {"heading": "Specification Generation Failure", "number": "5.3.2", "page": 8, "level": 4, "summary": "在**141次未覆盖契约且未检出**的尝试中，judge将原因分为方法遗漏35、错误处理遗漏32、数据变换遗漏27、常量细节被抽象25、执行约束遗漏22，五类数量合计141。", "analysis": "该分类说明泛泛描述功能会丢失对测试至关重要的具体条件，特别是**私有辅助方法、错误分支与常量值**。标签来自模型诊断，未见人工一致性；也未按所有契约覆盖失败175次统计，余下34次虽遗漏但检出，不能混用两个分母。"}, {"heading": "Test Generation Failure", "number": "5.3.3", "page": 8, "level": 4, "summary": "作者将**110次契约覆盖但未有效检出**归为测试生成失败：输入不充分37、遗漏场景36、弱/缺失断言20、错误测试逻辑12、无效测试代码5。正文另提14次框架或编译失败，并称其不属于前述语义失败。", "analysis": "数量上151检出+110语义失败+14运行失败=275覆盖契约尝试；但110类中“无效测试代码5次”又明确涉及编译失败，存在**分类边界冲突**。应原样保留并标注。前两类占73/110，提示可将约束到输入及场景的落实列为改进重点，尚需干预实验验证收益。"}, {"heading": "RQ4: Cost-Efficiency", "number": "5.4", "page": 9, "level": 3, "summary": "表4记录基线/规格组总token **243.9M/336.7M**、输入224.4M/305.7M、输出19.5M/31.0M，分别增加38.0%、36.2%、59.1%。k=5独立检出48/57个，每个检出bug约5.1M/5.9M token，增加16.2%。作者将成本归于额外规格上下文和更详细输出。", "analysis": "“检出更多”与“每单位成本更低”需要分开；这里**单位检出token成本变高**。由表值计算额外92.8M/净增9≈10.3M token，仍无法比较让基线额外采样的效果。正文总量336.6M及输出30.9M/19.4M与表格有轻微冲突；未报告延迟、货币成本或评审开销范围。"}, {"heading": "Threats to Validity", "number": "6", "page": 9, "level": 2, "summary": "作者承认LLM评审有噪声、冗长偏好与自偏好，采用更强judge、匿名顺序和5次多数投票缓解；内部效度讨论数据污染与单一模型；外部效度限于Google单仓库、单源码文件修复。并明确历史缺陷检验与**发现新bug**之间的距离。", "analysis": "同一底模控制部分共同因素，却**不能完全排除数据污染或交互效应**；更强同系列judge和重复调用也不消除系统偏差。还需额外考虑预算不匹配、人工质量真值缺失、剔除运行的分母、逐尝试聚类及单缺陷契约代理的边界。"}, {"heading": "Related Work", "number": "7", "page": 9, "level": 2, "summary": "将方法放在Hoare逻辑、设计契约、形式验证、LLM程序推理和测试生成脉络中。与形式方法相比，目标是利用自然语言条件生成有效测试；并讨论同期DeepTest及其调用图式规格。作者承认尚需比较**高层测试计划、伪代码、执行轨迹**，补充精度导向指标并对照静态分析和动态约束挖掘。", "analysis": "相关工作说明组成思想已有基础，创新重心是**结构化契约工作流及工业评估**。与同期方法的定位属于作者描述，本文没有直接横向实验。等长度其他支架与传统分析对照缺失，也使“契约结构本身最佳”的判断需要保留。"}, {"heading": "Conclusions", "number": "8", "page": 10, "level": 2, "summary": "结论重申两阶段契约驱动测试在90个历史缺陷上提升**detect@5与分支覆盖**，并由模型评审取得相对基线的质量优势；契约覆盖与检测成功相关，被作者作为中间oracle有用性的证据。", "analysis": "可支持的结论限于实验流程、样本和预算。结论中人工测试“优于或相当”与前文56.7%整体胜率描述略有简化，应沿用**整体偏好胜率**原口径。没有独立证据证明通用规格完整性、新缺陷发现或固定预算下最优。"}, {"heading": "References", "number": "", "page": 10, "level": 2, "summary": "参考文献涵盖**测试oracle、设计契约、真实缺陷评估、LLM规格推理与测试生成**，包括Defects4J、Coverup、TestForge、SpecBench及DeepTest等。", "analysis": "参考文献为理解方法来源和设计对照提供线索；此精读**未逐篇核验被引研究**，不将其内容当成本文额外实验结果。PDF模板中的会议名和DOI占位符不构成正式出版信息。"}], "generated_at": "2026-11-03T18:49:49+0800", "research_context_id": null, "_field_updated_at": {}, "built_at": "2026-11-03T18:49:49+0800"};
+
+  // ── prose (multi-paragraph) fields ──
+  // These render as <p> blocks so \n\n in the text shows as real paragraphs.
+  // writeProse/readProse keep the round-trip lossless (text ⇄ <p> DOM).
+  var PROSE_FIELDS = {
+    objective:1, problem_landscape:1, approach:1, impact:1,
+    cost:1, experiments_results:1, relevance_to_my_work:1, custom_notes:1,
+    guide_background:1, guide_question:1, guide_approach:1,
+    guide_findings:1, guide_insight:1, guide_limitations:1
+  };
+  function isProseField(f){ return PROSE_FIELDS[f] === 1; }
+  // Lightweight, safe inline markdown. HTML is escaped first so raw tags can't
+  // inject; LaTeX delimiters ($…$, \(…\), $$…$$, \[…\]) survive untouched for
+  // MathJax to typeset afterwards. Works the same in every prose module,
+  // section summary/analysis, and quote block.
+  function mdInline(s){
+    s = String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic uses * only (not _), because _ is ubiquitous in LaTeX
+    // subscripts (x_i, _{i=1}) and would otherwise be mangled.
+    s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)/g, function(full, label, url){
+      var scheme = '';
+      var match = String(url).match(/^([a-z][a-z0-9+.-]*):/i);
+      scheme = match ? match[1].toLowerCase()+':' : '';
+      if (scheme && ['http:','https:','mailto:'].indexOf(scheme) < 0) return full;
+      var safeUrl = url.replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/[\r\n]/g,'');
+      return '<a href="'+safeUrl+'" target="_blank" rel="noopener noreferrer">'+label+'</a>';
+    });
+    return s;
+  }
+  // Display renderer: markdown + leaves math for MathJax. Stores raw source in
+  // data-tex so a typeset <mjx-container> never corrupts what gets saved.
+  function writeProse(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var lines = para.split('\n');
+      var ordered = lines.map(function(ln){ return ln.match(/^\s*\d+[.)]\s+(.+?)\s*$/); });
+      var unordered = lines.map(function(ln){ return ln.match(/^\s*[-*+]\s+(.+?)\s*$/); });
+      if (lines.length && ordered.every(function(m){ return m; })) {
+        var ol = document.createElement('ol'); ol.className = 'markdown-list';
+        ordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ol.appendChild(li); });
+        el.appendChild(ol); return;
+      }
+      if (lines.length && unordered.every(function(m){ return m; })) {
+        var ul = document.createElement('ul'); ul.className = 'markdown-list';
+        unordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ul.appendChild(li); });
+        el.appendChild(ul); return;
+      }
+      var p = document.createElement('p');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        var span = document.createElement('span');
+        span.innerHTML = mdInline(ln);
+        while (span.firstChild) p.appendChild(span.firstChild);
+      });
+      el.appendChild(p);
+    });
+    // leave el empty when there is no content so the CSS placeholder shows
+  }
+  // Edit renderer: raw source (markdown + LaTeX) as plain, editable text.
+  function showSource(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var p = document.createElement('p');
+      var lines = para.split('\n');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        p.appendChild(document.createTextNode(ln));
+      });
+      el.appendChild(p);
+    });
+  }
+  function readProse(el){
+    if (!el) return '';
+    // Prefer the preserved raw source (accurate even after MathJax typeset).
+    if (el.dataset.tex != null) {
+      return el.dataset.tex.replace(/\s+$/,'').trim();
+    }
+    var ps = el.querySelectorAll(':scope > p');
+    if (ps.length){
+      return Array.prototype.map.call(ps, function(p){
+        return p.innerText.replace(/\u00a0/g,' ').replace(/\s+$/,'').trim();
+      }).filter(function(t){ return t.length; }).join('\n\n');
+    }
+    return el.innerText.trim();
+  }
+
+  // ── path helpers ──
+  function getByPath(o, p){ return p.split(".").reduce(function(o,k){return o==null?o:o[k];},o); }
+  function setByPath(o, p, v){ var pts=p.split("."); var cur=o;
+    for(var i=0;i<pts.length-1;i++){var k=pts[i],nx=pts[i+1]; if(cur[k]==null)cur[k]=/^\d+$/.test(nx)?[]:{}; cur=cur[k];}
+    cur[pts[pts.length-1]]=v; }
+  function isListField(f){ return Array.isArray(getByPath(INITIAL,f)); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function topOf(el){ return el.getBoundingClientRect().top + window.scrollY; }
+
+  function collectEdits(statusOverride){
+    var edits = {};
+    var fieldTimes = clone(INITIAL._field_updated_at || {});
+    var nowStamp = new Date().toISOString();
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f = el.dataset.field;
+      if (f.indexOf('key_quotes.')===0) return;
+      var nextValue;
+      if (isListField(f)) {
+        var items=[]; el.querySelectorAll('li').forEach(function(li){ var t=li.innerText.trim(); if(t)items.push(t); });
+        nextValue=items; setByPath(edits,f,items);
+      } else if (isProseField(f)) {
+        nextValue=readProse(el); setByPath(edits,f,nextValue);
+      } else { nextValue=el.innerText.trim(); setByPath(edits,f,nextValue); }
+      if(JSON.stringify(getByPath(INITIAL,f))!==JSON.stringify(nextValue)) fieldTimes[f]=nowStamp;
+    });
+    var quotes=[];
+    document.querySelectorAll('.quote-block').forEach(function(b){
+      var tEl=b.querySelector('.quote-text'), nEl=b.querySelector('.quote-note'), m=b.querySelector('.quote-meta');
+      var qt = (tEl && tEl.dataset.tex != null) ? tEl.dataset.tex.trim() : (tEl ? tEl.innerText.trim() : "");
+      var qn = (nEl && nEl.dataset.tex != null) ? nEl.dataset.tex.trim() : (nEl ? nEl.innerText.trim() : "");
+      quotes.push({text:qt,note:qn,page:m?m.dataset.page:"",color:m?m.dataset.color:""});
+    });
+    if (quotes.length || (INITIAL.key_quotes&&INITIAL.key_quotes.length)) edits.key_quotes=quotes;
+    if(JSON.stringify(INITIAL.key_quotes||[])!==JSON.stringify(quotes)) fieldTimes.key_quotes=nowStamp;
+    var secArr = collectSections();
+    if (secArr.length || (INITIAL.sections&&INITIAL.sections.length)) edits.sections = secArr;
+    if(JSON.stringify(INITIAL.sections||[])!==JSON.stringify(secArr)) fieldTimes.sections=nowStamp;
+    Object.keys(INITIAL).forEach(function(k){ if(!(k in edits)) edits[k]=INITIAL[k]; });
+    edits.module_notes = collectModuleNotes();   // per-module marginalia
+    edits.status = statusOverride || currentStatus;
+    edits._field_updated_at = fieldTimes;
+    edits.exported_at = new Date().toISOString();
+    edits.zotero_key = ZKEY;
+    edits.schema_version = INITIAL.schema_version || 3;
+    return edits;
+  }
+
+  var saveDot = document.getElementById('saveDot');
+  function markDirty(){ saveDot.className='save-dot is-dirty'; }
+  function markSaved(){ saveDot.className='save-dot is-saved'; setTimeout(function(){saveDot.className='save-dot';},1200); }
+  function markSynced(){ saveDot.className='save-dot is-synced'; }
+
+  // ── localStorage save ──
+  function saveToLS(statusOverride){
+    var edits = collectEdits(statusOverride);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(edits)); } catch(e){}
+    return edits;
+  }
+  function saveEdits(){
+    var edits = saveToLS();
+    if (dirHandle) { writeToFile(edits); } else { markSaved(); }
+  }
+  var saveTimer=null;
+  document.addEventListener('input', function(e){
+    var t=e.target;
+    if (t && t.classList && t.classList.contains('note-area')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800); updateNotesCount(); return;
+    }
+    if (t && t.hasAttribute && t.hasAttribute('contenteditable')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800);
+    }
+  });
+  document.addEventListener('keydown', function(e){ if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveEdits();} });
+
+  // ── File System Access API: sync to folder ──
+  var dirHandle = null;
+  var IDB_NAME = 'litreader-fs', IDB_STORE = 'handles';
+
+  function idbGet(key){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) { resolve(null); return; }
+          var tx = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(key);
+          tx.onsuccess = function(){ resolve(tx.result||null); };
+          tx.onerror = function(){ resolve(null); };
+        };
+        r.onerror = function(){ resolve(null); };
+      } catch(e){ resolve(null); }
+    });
+  }
+  function idbSet(key, val){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result; var tx = db.transaction(IDB_STORE,'readwrite');
+          tx.objectStore(IDB_STORE).put(val, key); tx.oncomplete=function(){resolve(true);}; tx.onerror=function(){resolve(false);};
+        };
+      } catch(e){ resolve(false); }
+    });
+  }
+  function isFsApi(){ return 'showDirectoryPicker' in window; }
+
+  async function writeToFile(edits){
+    if (!dirHandle) return;
+    try {
+      var target = dirHandle;
+      try { target = await dirHandle.getDirectoryHandle('papers', {create:false}); } catch(e){ target = dirHandle; }
+      var fh = await target.getFileHandle(ZKEY + '.edits.json', {create:true});
+      var w = await fh.createWritable();
+      await w.write(JSON.stringify(edits, null, 2));
+      await w.close();
+      markSynced();
+    } catch(err) {
+      toast('写文件失败：'+err.message);
+      markSaved();
+    }
+  }
+
+  async function connectFolder(){
+    if (!isFsApi()) { toast('当前浏览器不支持 File System Access API；请用 Export JSON 手动导出'); return; }
+    try {
+      var dh = await window.showDirectoryPicker({mode:'readwrite'});
+      dirHandle = dh;
+      await idbSet(LS_DIR, dh);
+      var btn = document.getElementById('btnSync');
+      btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+      markSynced();
+      saveEdits();
+      toast('已连接文件夹，编辑与状态将自动写入 ' + ZKEY + '.edits.json');
+    } catch(err) { /* user cancelled */ }
+  }
+  document.getElementById('btnSync').addEventListener('click', connectFolder);
+
+  (async function(){
+    if (!isFsApi()) return;
+    var stored = await idbGet(LS_DIR);
+    if (stored) {
+      var perm = await stored.queryPermission({mode:'readwrite'});
+      if (perm === 'granted') {
+        dirHandle = stored;
+        var btn = document.getElementById('btnSync');
+        btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+        markSynced();
+      } else if (perm === 'prompt') {
+        var btn2 = document.getElementById('btnSync');
+        btn2.textContent = 'Reconnect Folder';
+      }
+    }
+  })();
+
+  // ── load + apply ──
+  function collectSections(){
+    var arr=[];
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      arr.push({
+        heading: card.dataset.heading||"",
+        page: card.dataset.page||"",
+        level: card.classList.contains('lvl3')?3:2,
+        synthetic: card.dataset.synthetic?true:false,
+        summary: sumEl?readProse(sumEl):"",
+        analysis: anaEl?readProse(anaEl):""
+      });
+    });
+    return arr;
+  }
+  function applySectionsToDom(secArr){
+    if (!secArr || !secArr.length) return;
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var idx=parseInt(card.dataset.index,10);
+      var s=secArr[idx];
+      if(!s) return;
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      if(sumEl && s.summary!=null) writeProse(sumEl, s.summary);
+      if(anaEl && s.analysis!=null) writeProse(anaEl, s.analysis);
+    });
+  }
+  function collectModuleNotes(){
+    var obj = {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = ta.value.trim();
+      if (v) obj[ta.dataset.module] = v;
+    });
+    return obj;
+  }
+  function applyModuleNotes(edits){
+    var mn = edits.module_notes || {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = mn[ta.dataset.module];
+      if (v != null) ta.value = v;
+    });
+  }
+  function applyEditsToDom(edits){
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f=el.dataset.field;
+      if (f.indexOf('key_quotes.')===0){
+        var m=f.match(/^key_quotes\.(\d+)\.(text|note)$/);
+        if(m){ var q=(edits.key_quotes||[])[parseInt(m[1],10)]; if(q) writeProse(el, q[m[2]]||""); }
+        return;
+      }
+      if (isListField(f)) {
+        var arr=getByPath(edits,f)||[]; el.innerHTML=''; arr.forEach(function(it){var li=document.createElement('li'); li.innerHTML=mdInline(it); el.appendChild(li);});
+      } else if (isProseField(f)) {
+        var vp=getByPath(edits,f); if(vp!=null) writeProse(el, vp);
+      } else { var v=getByPath(edits,f); if(v!=null) el.innerText=v; }
+    });
+    applySectionsToDom(edits.sections);
+    applyModuleNotes(edits);
+  }
+
+  // ── export / import ──
+  function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('is-visible'); setTimeout(function(){t.classList.remove('is-visible');},2400); }
+  document.getElementById('btnExport').addEventListener('click', function(){
+    saveToLS(); var edits=collectEdits();
+    var blob=new Blob([JSON.stringify(edits,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob); var a=document.createElement('a');
+    a.href=url; a.download=ZKEY+'.edits.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url); toast('已导出 '+ZKEY+'.edits.json');
+  });
+  var importInput=document.getElementById('importInput');
+  document.getElementById('btnImport').addEventListener('click', function(){ importInput.click(); });
+  importInput.addEventListener('change', function(e){
+    var file=e.target.files[0]; if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try { var edits=JSON.parse(ev.target.result); localStorage.setItem(LS_KEY,JSON.stringify(edits));
+        if (edits.status) setStatus(edits.status, false);
+        applyEditsToDom(edits); updateNotesCount(); toast('已导入编辑'); markSaved();
+        if (dirHandle) writeToFile(edits);
+      } catch(err){ toast('导入失败：'+err.message); }
+    };
+    reader.readAsText(file); importInput.value='';
+  });
+
+  // ── status ──
+  var currentStatus = "reading" || "reading";
+  function setStatus(s, persist){
+    currentStatus = s;
+    document.querySelectorAll('.status-btn').forEach(function(b){ b.classList.toggle('is-active', b.dataset.status===s); });
+    if (persist) {
+      var edits = saveToLS(s);
+      if (dirHandle) writeToFile(edits);
+      toast('Status → '+s+'；已写入 '+ZKEY+'.edits.json');
+    }
+  }
+  document.querySelectorAll('.status-btn').forEach(function(b){
+    b.addEventListener('click', function(){ setStatus(b.dataset.status, true); });
+  });
+  var storedEdits = null;
+  try { storedEdits = localStorage.getItem(LS_KEY) ? JSON.parse(localStorage.getItem(LS_KEY)) : null; } catch(e){}
+  var savedStatus = (storedEdits && storedEdits.status) || "reading" || "reading";
+  try { var ls = localStorage.getItem(LS_STATUS); if (ls) savedStatus = ls; } catch(e){}
+  currentStatus = savedStatus;
+  setStatus(currentStatus, false);
+
+  // ── accent theme switcher ──
+  var accentDots = document.querySelectorAll('.accent-dot');
+  function setAccent(a, persist){
+    document.body.setAttribute('data-accent', a);
+    accentDots.forEach(function(d){ d.classList.toggle('is-active', d.dataset.accent === a); });
+    if (persist) { try { localStorage.setItem(LS_ACCENT, a); } catch(e){} }
+  }
+  var savedAccent = "blue";
+  try { var sa = localStorage.getItem(LS_ACCENT); if (sa) savedAccent = sa; } catch(e){}
+  setAccent(savedAccent, false);
+  accentDots.forEach(function(d){
+    d.addEventListener('click', function(){ setAccent(d.dataset.accent, true); });
+  });
+
+  // ── progress rail ──
+  function onProgress(){
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var p = h > 0 ? (window.scrollY / h) * 100 : 0;
+    var rail = document.getElementById('progressRail');
+    if (rail) rail.style.width = p + '%';
+  }
+  window.addEventListener('scroll', onProgress, {passive:true});
+  window.addEventListener('resize', onProgress, {passive:true});
+
+  // ── left TOC + scroll-spy (shared with notes) ──
+  function buildNav(){
+    var toc = document.getElementById('toc');
+    if (!toc) return;
+    var list = document.createElement('div'); list.className='toc-list';
+    var modules = Array.prototype.slice.call(document.querySelectorAll('.module'));
+    if (!modules.length) { toc.style.display='none'; return; }
+
+    var mainLinks = [], subLinks = [], noteCards = [], navTargets = [];
+    modules.forEach(function(mod){
+      var id = mod.id;
+      var h2 = mod.querySelector('.sec-h');
+      var idx = h2.querySelector('.sec-index') ? h2.querySelector('.sec-index').textContent : '';
+      var name = h2.querySelector('.sec-name') ? h2.querySelector('.sec-name').textContent : h2.textContent;
+      var a = document.createElement('a');
+      a.className='toc-link'; a.href='#'+id; a.dataset.module=id;
+      a.innerHTML = '<span class="toc-num">'+idx+'</span><span class="toc-label">'+name+'</span>';
+      list.appendChild(a);
+      mainLinks.push(a);
+      navTargets.push({id:id, el:mod, type:'main'});
+      // sub-modules (only meaningful under 09, but generic)
+      mod.querySelectorAll('.submod > h3').forEach(function(h3){
+        if (!h3.id) h3.id = id + '-' + h3.textContent.replace(/\s+/g,'-');
+        var sa = document.createElement('a');
+        sa.className='toc-sublink'; sa.href='#'+h3.id; sa.dataset.sub=h3.id;
+        sa.innerHTML = '<span class="toc-subnum">·</span><span class="toc-sublabel">'+h3.textContent+'</span>';
+        list.appendChild(sa);
+        subLinks.push(sa);
+        navTargets.push({id:h3.id, el:h3, type:'sub'});
+      });
+    });
+    toc.appendChild(list);
+
+    noteCards = Array.prototype.slice.call(document.querySelectorAll('.note-card'));
+
+    navTargets.sort(function(a,b){ return topOf(a.el) - topOf(b.el); });
+    var linkMap = {}; mainLinks.forEach(function(l){ linkMap[l.dataset.module]=l; });
+    var subMap = {}; subLinks.forEach(function(l){ subMap[l.dataset.sub]=l; });
+
+    function onScroll(){
+      var pos = window.scrollY + 130;
+      var active = navTargets[0];
+      navTargets.forEach(function(t){ if (topOf(t.el) <= pos) active = t; });
+      mainLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      subLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      noteCards.forEach(function(n){ n.classList.remove('is-active'); });
+      if (active) {
+        if (active.type === 'main') {
+          var lk = linkMap[active.id]; if (lk) lk.classList.add('is-active');
+        } else {
+          var sl = subMap[active.id]; if (sl) sl.classList.add('is-active');
+          var pm = active.el.closest('.module');
+          if (pm) { var lk2 = linkMap[pm.id]; if (lk2) lk2.classList.add('is-active'); }
+        }
+        var modEl = active.type === 'main' ? active.el : active.el.closest('.module');
+        noteCards.forEach(function(n){ n.classList.toggle('is-active', n.dataset.module === modEl.id); });
+      }
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+    window.addEventListener('resize', onScroll, {passive:true});
+    onScroll();
+  }
+
+  // ── note jump + section → note focus ──
+  function wireNotes(){
+    document.querySelectorAll('.note-jump').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var el = document.getElementById(btn.dataset.target);
+        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+      });
+    });
+    document.querySelectorAll('.sec-h').forEach(function(h2){
+      h2.addEventListener('click', function(){
+        var mod = h2.closest('.module'); if (!mod) return;
+        var card = document.querySelector('.note-card[data-module="'+mod.id+'"]');
+        if (card) card.scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
+  }
+
+  function updateNotesCount(){
+    var n = 0;
+    document.querySelectorAll('.note-area').forEach(function(ta){ if (ta.value.trim()) n++; });
+    var el = document.getElementById('notesCount');
+    if (el) el.textContent = n;
+  }
+
+  // ── math typeset (MathJax) ──
+  // Typeset the whole document. Called on init (guarded) and again by the
+  // MathJax startup promise once the library is ready.
+  function litTypeset(){
+    if (window.MathJax && MathJax.typesetPromise) {
+      try { MathJax.typesetPromise().catch(function(){}); } catch(e){}
+    }
+  }
+  window.litTypeset = litTypeset;
+
+  // Editable fields (summaries, quotes) must stay plaintext while the user is
+  // typing, but render math on blur. We keep the raw source in data-tex so the
+  // typeset <mjx-container> never corrupts what gets saved.
+  // Every editable field (the 8 prose modules, section summaries/analyses, and
+  // quote blocks) shares one round-trip: focus shows the raw markdown+LaTeX
+  // source so it's editable; blur re-renders markdown and re-typesets math.
+  // The raw source is always preserved in data-tex, so what gets saved to
+  // localStorage / edits.json is never the rendered <strong>/<mjx-container>.
+  function wireEditable(){
+    document.querySelectorAll('[data-field].editable, .quote-text, .quote-note, .sec-summary, .sec-analysis')
+      .forEach(function(el){
+        el.addEventListener('focus', function(){
+          if (el.dataset.tex != null) showSource(el, el.dataset.tex);
+        });
+        el.addEventListener('input', function(){
+          if (el.dataset.tex != null) el.dataset.tex = el.innerText;
+        });
+        el.addEventListener('blur', function(){
+          if (el.dataset.tex != null) writeProse(el, el.dataset.tex);
+          if (window.MathJax && MathJax.typesetPromise) {
+            try { MathJax.typesetPromise([el]).catch(function(){}); } catch(e){}
+          }
+        });
+      });
+  }
+
+  // ── lightbox for figures ──
+  function wireLightbox(){
+    var overlay = document.getElementById('lbOverlay');
+    var img = document.getElementById('lbImg');
+    var cap = document.getElementById('lbCaption');
+    var closeBtn = document.getElementById('lbClose');
+    if (!overlay || !img) return;
+    function open(src, caption){
+      img.src = src; cap.textContent = caption || '';
+      overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden','false');
+    }
+    function close(){
+      overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden','true');
+      img.src = '';
+    }
+    document.querySelectorAll('.figure-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var im = card.querySelector('img'); if (!im) return;
+        var meta = card.querySelector('.figure-meta');
+        var caption = meta ? meta.innerText.replace(/\s+/g,' ').trim() : '';
+        open(im.getAttribute('src'), caption);
+      });
+    });
+    overlay.addEventListener('click', function(e){
+      if (e.target === overlay || e.target === closeBtn) close();
+    });
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && overlay.classList.contains('is-open')) close();
+    });
+  }
+
+  // ── init ──
+  // A rebuild bumps INITIAL.built_at. A stale localStorage snapshot from an
+  // older build (or a pre-fix broken sync) is discarded in favour of the
+  // freshly-built embedded data, so fixes always take effect on reload.
+  // A same-build localStorage copy (the user's own unsynced edits) is kept.
+  var stored = null;
+  try { stored = localStorage.getItem(LS_KEY); } catch(e){}
+  var storedObj = null;
+  try { storedObj = stored ? JSON.parse(stored) : null; } catch(e){ storedObj = null; }
+  var embeddedBuiltAt = (INITIAL && INITIAL.built_at) || null;
+  var storedBuiltAt = (storedObj && storedObj.built_at) || null;
+  if (storedObj && embeddedBuiltAt && storedBuiltAt && storedBuiltAt === embeddedBuiltAt) {
+    applyEditsToDom(storedObj);
+  } else {
+    applyEditsToDom(INITIAL);
+  }
+  buildNav();
+  wireNotes();
+  wireEditable();
+  wireLightbox();
+  updateNotesCount();
+  onProgress();
+  litTypeset();   // no-op until MathJax is ready; startup promise re-runs it
+})();
+</script>
+
+</body>
+</html>
