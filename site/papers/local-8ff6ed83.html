@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Context Language Models — Close Reading</title>
+<script>
+  (function(){
+    var v = '2026-07-14-v5';
+    if (location.search.indexOf('nocache=' + v) === -1) {
+      var url = location.origin + location.pathname + '?nocache=' + v + location.hash;
+      location.replace(url);
+    }
+  })();
+</script>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+  :root {
+    --accent-light: #F5B7AB;
+    --accent-mid:   #ED7E7D;
+    --accent-deep:  #C73B41;
+    --accent-tint:  #FDF6F4;
+    --accent-mid-rgb: 237,126,125;
+    --ink:        #423F3D;
+    --ink-soft:   #6E655E;
+    --ink-faint:  #7E756D;
+    --rule:       #EEE8E4;
+    --rule-lit:   #F5F0EC;
+    --border:     #E4DDD7;
+    --bg:         #FFFFFF;
+    --bg-soft:    #FAFAF8;
+    --bg-info:    #FDFCFB;
+
+    --font-body: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    --font-display: "Spectral", Georgia, "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+
+    --w-toc: 200px;
+    --w-notes: 250px;
+    --w-main: minmax(500px, 720px);
+    --gx: clamp(40px, 5vw, 72px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg); color: var(--ink);
+    line-height: 1.72; font-weight: 400;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .progress-rail {
+    position: fixed; top: 0; left: 0; right: 0; height: 1px;
+    background: var(--rule-lit); z-index: 120;
+  }
+  .progress-rail::after {
+    content: ""; display: block; height: 100%; width: 0%;
+    background: var(--accent-mid); transition: width .12s linear;
+  }
+
+  /* ── topbar ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px clamp(28px, 4vw, 48px);
+    margin: 0 auto; flex-wrap: wrap; gap: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .tb-left {
+    font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  .tb-left .tb-key { color: var(--ink-soft); font-family: var(--font-mono); letter-spacing: .04em; }
+  .tb-right { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .tb-group { display: inline-flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+  .tb-sep { width: 1px; height: 18px; background: var(--rule); flex-shrink: 0; }
+  .tb-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); text-decoration: none; font-weight: 500;
+    padding: 5px 0; cursor: pointer; background: none; border: none;
+    font-family: var(--font-body);
+    border-bottom: 1px solid transparent; transition: color .2s, border-color .2s;
+  }
+  .tb-link:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .tb-link.is-connected { color: #8FB98A; border-bottom-color: #8FB98A; }
+  .tb-back { padding: 5px 0; }
+  .tb-back:hover { color: var(--accent-mid); border-bottom-color: transparent; }
+
+  .status-group { display: inline-flex; gap: 4px; align-items: center; }
+  .status-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 4px;
+  }
+  .status-btn {
+    font-size: 11px; letter-spacing: .04em; font-weight: 600;
+    color: var(--ink-faint); background: none;
+    border: 1px solid var(--rule); cursor: pointer;
+    padding: 3px 9px; font-family: var(--font-body); transition: all .18s;
+  }
+  .status-btn:hover { color: var(--ink-soft); border-color: var(--ink-faint); }
+  .status-btn.is-active { color: var(--accent-deep); border-color: var(--accent-deep); background: var(--accent-tint); }
+
+  /* ── accent theme switcher ── */
+  .accent-group { display: inline-flex; gap: 6px; align-items: center; }
+  .accent-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; margin-right: 2px;
+  }
+  .accent-dot {
+    width: 16px; height: 16px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--rule); padding: 0; background: none;
+    transition: transform .15s, box-shadow .15s; position: relative;
+  }
+  .accent-dot::after {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--dot);
+  }
+  .accent-dot[data-accent="rose"]  { --dot: #ED7E7D; }
+  .accent-dot[data-accent="green"] { --dot: #6FBF92; }
+  .accent-dot[data-accent="blue"]  { --dot: #6BA6D4; }
+  .accent-dot:hover { transform: scale(1.12); }
+  .accent-dot.is-active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--dot); }
+
+  /* ── three-column reader grid ── */
+  .reader {
+    display: grid;
+    grid-template-columns: var(--w-toc) minmax(500px, 1fr) var(--w-notes);
+    column-gap: var(--gx);
+    justify-content: space-between;
+    margin: 0 auto; padding: 0 clamp(28px, 4vw, 48px);
+    align-items: start;
+  }
+  .toc {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-toc);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-right: 4px;
+    font-size: 13px;
+  }
+  .notes {
+    position: sticky; top: 84px; align-self: start;
+    width: var(--w-notes);
+    max-height: calc(100vh - 104px); overflow-y: auto; padding-left: 4px;
+    font-size: 13px;
+  }
+  .page { min-width: 0; padding-bottom: 96px; }
+
+  /* ── paper header ── */
+  .head {
+    padding: 48px 0 36px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 12px;
+  }
+  .head-overline {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent-deep); font-weight: 600; margin-bottom: 18px;
+  }
+  .head-title {
+    font-size: clamp(28px, 4.6vw, 42px);
+    font-family: var(--font-display);
+    font-weight: 600; line-height: 1.16; letter-spacing: -.01em;
+    color: var(--ink); margin-bottom: 14px;
+  }
+  .head-sub {
+    font-size: 16px; line-height: 1.6; color: var(--ink-soft);
+    font-weight: 400; width: 100%; max-width: none;
+  }
+  .head-meta {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 26px; font-size: 13px; color: var(--ink-faint);
+  }
+  .head-meta > div { display: flex; align-items: center; gap: 8px; }
+  .hm-dot { width: 6px; height: 6px; background: var(--accent-mid); border-radius: 50%; flex-shrink: 0; }
+  .hm-val { color: var(--ink); font-weight: 500; }
+  .hm-val a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .hm-val a:hover { color: var(--accent-mid); border-bottom-color: var(--accent-mid); }
+  .hm-val .hm-time { font-family: var(--font-mono); }
+
+  .head-status { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+  .keywords-row { margin-top: 8px; }
+  .keywords-value { font-size: 13px; color: var(--ink-soft); }
+  .hs-label {
+    font-size: 11px; letter-spacing: .10em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  /* ── module + headings (simplified) ── */
+  .module { scroll-margin-top: 96px; }
+  .sec-h {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 58px 0 16px; scroll-margin-top: 96px; cursor: pointer;
+    position: relative;
+  }
+  .sec-index {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 34px; height: 30px; padding: 0 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; letter-spacing: .02em;
+  }
+  .sec-name {
+    font-size: 23px; font-weight: 600; color: var(--ink);
+    font-family: var(--font-display);
+    letter-spacing: -.01em; line-height: 1.22;
+  }
+  .sec-hint {
+    margin-left: auto; align-self: center;
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-faint); opacity: 0; transition: opacity .2s;
+  }
+  .sec-h:hover .sec-hint { opacity: 1; }
+
+  .field-text {
+    font-size: 16px; line-height: 1.82; color: var(--ink);
+    padding: 4px 8px; margin: 0 -8px 4px; min-height: 1.6em;
+  }
+
+  /* Natural paragraph breaks inside prose fields (multi-<p>). */
+  .field-text p { margin: 0 0 0.92em; }
+  .field-text p:last-child { margin-bottom: 0; }
+  .sec-summary p { margin: 0 0 0.75em; }
+  .sec-summary p:last-child { margin-bottom: 0; }
+  .sec-analysis p { margin: 0 0 0.7em; }
+  .sec-analysis p:last-child { margin-bottom: 0; }
+
+  .block-lede {
+    max-width: 680px; margin: -2px 0 24px; color: var(--ink-soft);
+    font-size: 14px; line-height: 1.75;
+  }
+  .relevance-grid { margin: 0; }
+  .relevance-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .relevance-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .relevance-item h3 {
+    margin: 0 0 10px; font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent-deep);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .relevance-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .relevance-item .field-text { padding: 0; margin: 0; font-size: 15px; line-height: 1.75; }
+
+  /* Overview follows the same light, dot-led rhythm as the close-reading submodules. */
+  .overview-grid { margin: 0; }
+  .overview-item { padding: 0 0 24px; margin: 0 0 24px; border-bottom: 1px solid var(--rule); }
+  .overview-item:last-child { margin-bottom: 0; border-bottom: 0; }
+  .overview-item h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin: 0 0 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .overview-item h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+  .overview-item .field-text { padding: 0; margin: 0; font-size: 16px; line-height: 1.82; }
+  .overview-conclusion { background: transparent; }
+  .overview-conclusion .field-text + .field-text { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--accent-light); }
+  .relevance-wide { grid-column: 1 / -1; }
+  .relevance-item > .editable-list { margin: 0; }
+
+  @media (max-width: 760px) { .relevance-wide { grid-column: auto; } }
+
+  .editable, [contenteditable] {
+    outline: none; transition: background .15s, box-shadow .15s; border-radius: 1px;
+  }
+  .editable:focus, [contenteditable]:focus {
+    background: var(--accent-tint); box-shadow: 0 0 0 1px var(--accent-mid);
+  }
+  .editable:empty::before, [contenteditable]:empty::before {
+    content: attr(data-placeholder); color: var(--ink-faint); font-style: italic;
+  }
+
+  .body ol, .body ul {
+    margin: 12px 0 24px; padding: 0; list-style: none; counter-reset: ls;
+  }
+  .body ol li {
+    position: relative; padding: 7px 0 7px 40px;
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); counter-increment: ls;
+  }
+  .body ol li::before {
+    content: counter(ls); position: absolute; left: 0; top: 8px;
+    font-size: 13px; font-weight: 600; color: var(--accent-deep); width: 28px; text-align: right;
+  }
+  .editable-list li { padding-left: 40px; }
+
+  .key-concept {
+    margin: 18px 0 8px; padding: 22px 26px;
+    background: var(--bg); border: 1px solid var(--accent-light); position: relative;
+  }
+  .key-concept .kc-label {
+    position: absolute; top: -9px; left: 20px;
+    font-size: 10px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    background: var(--bg); padding: 2px 10px;
+  }
+
+  /* ── sub-modules inside 09 ── */
+  .submod { margin: 32px 0; }
+  .abstract-first { margin: 28px 0 0; }
+  .submod > h3 {
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-deep); margin-bottom: 12px; scroll-margin-top: 96px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .submod > h3::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-mid); flex-shrink: 0;
+  }
+
+  .quote-block {
+    margin: 22px 0; padding: 20px 24px;
+    background: var(--bg); border: 1px solid var(--rule);
+    position: relative;
+  }
+  .quote-block .qb-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .quote-block .qb-swatch {
+    width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--rule);
+  }
+  .quote-text {
+    font-size: 15.5px; line-height: 1.7; color: var(--ink); font-style: italic;
+    padding: 4px 8px; margin: 0 -8px 8px; min-height: 1.5em;
+  }
+  .quote-note {
+    font-size: 13.5px; line-height: 1.6; color: var(--ink-soft);
+    padding: 4px 8px; margin: 0 -8px; min-height: 1.4em;
+    border-top: 1px dashed var(--rule-lit); padding-top: 10px;
+  }
+
+  /* ── figures ── */
+  .figures-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px; margin-top: 8px;
+  }
+  .figure-card {
+    border: 1px solid var(--rule); background: var(--bg); padding: 10px;
+    transition: border-color .18s;
+  }
+  .figure-card:hover { border-color: var(--accent-light); }
+  .figure-card img { width: 100%; height: auto; display: block; background: var(--bg-soft); }
+  .figure-meta {
+    margin-top: 8px; font-size: 11px; color: var(--ink-faint);
+    font-family: var(--font-mono); letter-spacing: .02em;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ── section-by-section module ── */
+  .sections-list { margin-top: 8px; display: flex; flex-direction: column; gap: 16px; }
+  .sec-card {
+    border: 1px solid var(--rule); background: var(--bg);
+    padding: 18px 22px; position: relative; scroll-margin-top: 96px;
+  }
+  .sec-card.lvl3 {
+    margin-left: 24px; background: var(--bg-soft);
+  }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 11px;
+    min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .lvl3 .sec-num { color: var(--ink-soft); border-color: var(--border); background: var(--bg); }
+  .sec-head h3 {
+    font-size: 16px; font-weight: 700; color: var(--ink); line-height: 1.3;
+    letter-spacing: -.01em; margin: 0; flex: 1;
+  }
+  .sec-synthetic {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    color: var(--ink-faint); border: 1px solid var(--rule);
+    padding: 1px 6px; border-radius: 2px; margin-left: 6px; vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .sec-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+  .sec-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin: 10px 0 4px;
+  }
+  .sec-label-analysis { color: var(--ink-soft); }
+  .sec-summary { font-size: 15px; line-height: 1.78; }
+  .sec-analysis {
+    font-size: 14.5px; line-height: 1.74; color: var(--ink-soft);
+    background: var(--bg); padding: 10px 12px; border-left: 1px solid var(--rule-lit);
+  }
+
+  .info-box {
+    margin: 8px 0; padding: 20px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+    font-size: 14.5px; line-height: 1.7; color: var(--ink-soft);
+  }
+  .info-box .info-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); margin-bottom: 14px; display: block;
+  }
+  .hl-group { margin-bottom: 16px; }
+  .hl-group:last-child { margin-bottom: 0; }
+  .hl-group-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: .10em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px;
+  }
+  .hl-swatch { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--rule); }
+  .hl-item {
+    font-size: 14px; line-height: 1.65; color: var(--ink);
+    padding: 6px 0 6px 14px; border-left: 1px solid var(--rule); margin-bottom: 6px;
+  }
+  .hl-item.is-comment { background: var(--accent-tint); border-left-color: var(--accent-mid); }
+  .hl-item .hl-page { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .hl-item .hl-comment { color: var(--accent-deep); font-size: 13px; display: block; margin-top: 2px; }
+
+  details.abstract-box {
+    margin: 8px 0 0; padding: 16px 24px;
+    border: 1px solid var(--rule); background: var(--bg);
+  }
+  details.abstract-box summary {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep); cursor: pointer; list-style: none;
+  }
+  details.abstract-box summary::-webkit-details-marker { display: none; }
+  details.abstract-box summary::before { content: "+ "; }
+  details.abstract-box[open] summary::before { content: "− "; }
+  .abstract-text { margin-top: 12px; font-size: 14.5px; line-height: 1.7; color: var(--ink-soft); }
+
+  /* ── left TOC ── */
+  .toc-title {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+    margin-bottom: 14px; padding-left: 12px;
+  }
+  .toc-list { display: flex; flex-direction: column; }
+  .toc-link, .toc-sublink {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 0 5px 12px; text-decoration: none; color: var(--ink-soft);
+    border-left: 1px solid transparent; line-height: 1.35;
+    transition: color .18s, border-color .18s, background .18s;
+  }
+  .toc-link:hover, .toc-sublink:hover { color: var(--ink); border-left-color: var(--accent-light); }
+  .toc-link.is-active, .toc-sublink.is-active {
+    color: var(--accent-deep); border-left-color: var(--accent-mid);
+    font-weight: 500; background: var(--accent-tint);
+  }
+  .toc-num {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint);
+    min-width: 20px; flex-shrink: 0;
+  }
+  .toc-label { flex: 1; }
+  .toc-sublink { padding-left: 30px; font-size: 12.5px; color: var(--ink-faint); }
+  .toc-subnum {
+    font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint);
+    min-width: 24px; flex-shrink: 0;
+  }
+
+  /* ── right notes column ── */
+  .notes-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 12px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
+  }
+  .notes-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent-deep);
+  }
+  .notes-count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .notes-list { display: flex; flex-direction: column; gap: 16px; padding-top: 6px; }
+  .note-card {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .note-card:hover {
+    border-color: var(--accent-light);
+    box-shadow: 0 4px 20px rgba(var(--accent-mid-rgb),.08);
+  }
+  .note-card.is-active {
+    background: var(--bg);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 1px var(--accent-mid), 0 8px 28px rgba(var(--accent-mid-rgb),.12);
+    transform: translateY(-1px);
+  }
+  .note-jump {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: none; cursor: pointer; padding: 0 0 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px dashed var(--rule);
+    text-align: left; font-family: var(--font-body);
+  }
+  .note-jump:hover .note-name { color: var(--accent-deep); }
+  .note-num {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--accent-deep); background: var(--accent-tint);
+    border: 1px solid var(--accent-light); border-radius: 999px;
+    min-width: 30px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .note-name { font-size: 13.5px; font-weight: 600; color: var(--ink); transition: color .18s; }
+  .note-area {
+    width: 100%; min-height: 64px; resize: vertical;
+    border: 1px solid transparent; border-radius: 10px;
+    background: var(--bg); font-family: var(--font-body);
+    font-size: 13px; line-height: 1.62; color: var(--ink-soft);
+    outline: none; padding: 10px 12px;
+    transition: background .15s, border-color .15s, box-shadow .15s, color .15s;
+  }
+  .note-area::placeholder { color: var(--ink-faint); font-style: italic; }
+  .note-area:hover { background: var(--bg); }
+  .note-area:focus {
+    background: var(--bg); color: var(--ink);
+    border-color: var(--accent-mid);
+    box-shadow: 0 0 0 3px rgba(var(--accent-mid-rgb),.12);
+  }
+
+  .footnav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 40px 0 0; margin-top: 56px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-faint); letter-spacing: .06em;
+  }
+  .footnav a { color: var(--ink-soft); text-decoration: none; }
+  .footnav a:hover { color: var(--accent-mid); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg); padding: 11px 20px;
+    font-size: 13px; opacity: 0; transition: opacity .25s, transform .25s;
+    pointer-events: none; z-index: 200;
+  }
+  .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .save-dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-faint); margin-left: 6px; vertical-align: middle; transition: background .2s;
+  }
+  .save-dot.is-dirty { background: var(--accent-mid); }
+  .save-dot.is-saved { background: #8FB98A; }
+  .save-dot.is-synced { background: #8FB98A; box-shadow: 0 0 0 2px rgba(143,185,138,.25); }
+
+  /* ── responsive: collapse to single column ── */
+  @media (max-width: 1100px) {
+    .reader { grid-template-columns: minmax(0, 1fr); }
+    .toc, .notes { display: none; }
+  }
+  @media (max-width: 640px) {
+    .head { padding: 32px 0 24px; margin-bottom: 24px; }
+    .head-title { font-size: 24px; }
+    .head-meta { gap: 12px; }
+    .key-concept, .quote-block { padding: 16px; }
+    .figures-grid { grid-template-columns: 1fr; }
+    .sec-h { gap: 10px; }
+    .sec-name { font-size: 20px; }
+  }
+
+  /* ── lightbox (click-to-enlarge figures) ── */
+  .lb-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(66,63,61,.92); padding: 5vh 5vw;
+    cursor: zoom-out; opacity: 0; transition: opacity .22s ease;
+  }
+  .lb-overlay.is-open { display: flex; opacity: 1; }
+  .lb-stage {
+    max-width: 92vw; max-height: 90vh; display: flex;
+    flex-direction: column; align-items: center; gap: 14px;
+  }
+  .lb-img {
+    max-width: 92vw; max-height: 80vh; object-fit: contain;
+    background: #fff; box-shadow: 0 12px 48px rgba(0,0,0,.4);
+    border-radius: 2px;
+  }
+  .lb-caption {
+    color: #fff; font-size: 13px; letter-spacing: .04em;
+    font-family: var(--font-mono); opacity: .82; text-align: center;
+  }
+  .lb-close {
+    position: absolute; top: 18px; right: 22px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff;
+    border: 1px solid rgba(255,255,255,.3); cursor: pointer;
+    font-size: 20px; line-height: 1; display: flex;
+    align-items: center; justify-content: center;
+  }
+  .lb-close:hover { background: rgba(255,255,255,.24); }
+  .figure-card { cursor: zoom-in; }
+
+  /* ── accent themes: set <body data-accent="rose|green|blue"> ── */
+  [data-accent="green"] {
+    --accent-light: #B6DFC4; --accent-mid: #6FBF92; --accent-deep: #1F7A4F;
+    --accent-tint: #F1FAF4; --accent-mid-rgb: 111,191,146;
+  }
+  [data-accent="blue"] {
+    --accent-light: #AFD2EC; --accent-mid: #6BA6D4; --accent-deep: #286BA3;
+    --accent-tint: #F1F7FC; --accent-mid-rgb: 107,166,212;
+  }
+
+  /* When the user opted out of Zotero, hide Zotero-only modules. */
+  body[data-zotero="off"] .module-zotero { display: none; }
+
+</style>
+
+<!-- MathJax 3: render $...$, $$...$$, \(...\), \[...\] in note content. -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' },
+    startup: {
+      ready: function () {
+        MathJax.startup.defaultReady();
+        MathJax.startup.promise.then(function () {
+          if (typeof window.litTypeset === 'function') window.litTypeset();
+        });
+      }
+    }
+  };
+</script>
+<script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body data-accent="blue" data-zotero="off">
+
+<div class="progress-rail" id="progressRail"></div>
+
+<header class="topbar">
+  <div class="tb-left">CLOSE READING &middot; <span class="tb-key">local-8ff6ed83</span></div>
+  <div class="tb-right">
+    <a class="tb-link tb-back" href="../dashboard.html" title="返回总览 Dashboard" style="text-transform:none; letter-spacing:.04em;">&larr; 总览</a>
+    <span class="tb-sep"></span>
+    <div class="accent-group tb-group" id="accentGroup">
+      <span class="accent-label">Theme</span>
+      <button class="accent-dot" data-accent="rose" type="button" title="Rose"></button>
+      <button class="accent-dot" data-accent="green" type="button" title="Green"></button>
+      <button class="accent-dot" data-accent="blue" type="button" title="Blue"></button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <button class="tb-link" id="btnSync" type="button" title="Auto-save edits & status to a local folder">Sync Folder</button>
+      <button class="tb-link" id="btnExport" type="button">Export JSON</button>
+      <button class="tb-link" id="btnImport" type="button">Import JSON</button>
+      <span class="save-dot" id="saveDot" title="unsaved"></span>
+    </div>
+  </div>
+</header>
+
+<div class="reader">
+
+  <nav class="toc" id="toc"><div class="toc-title">目录 · Contents</div></nav>
+
+  <main class="page body">
+
+    <header class="head">
+      <div class="head-overline">PAPER &middot; 2026 &middot; arXiv</div>
+      <h1 class="head-title">Context Language Models</h1>
+      <p class="head-sub">Rulin Shao, Shannon Zejiang Shen, Junjie Oscar Yin, Yuetai Li, Minheng Wang, Hamish Ivison, Radha Poovendran, Nathan Lambert, Teng Xiao, Mike Lewis, Wen-tau Yih, Luke Zettlemoyer, Pang Wei Koh</p>
+      <div class="head-meta">
+        <div><span class="hm-dot"></span>Collections <span class="hm-val">Unfiled</span></div>
+        <div><span class="hm-dot"></span>DOI <span class="hm-val"><a href="https://doi.org/10.48550/arXiv.2609.37725" target="_blank" rel="noopener">10.48550/arXiv.2609.37725</a></span></div>
+        <div><span class="hm-dot"></span>Highlights <span class="hm-val">0</span></div>
+        <div><span class="hm-dot"></span>Reading time <span class="hm-val hm-time" id="readingTime">—</span></div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Status</span>
+        <div class="status-group">
+          <button class="status-btn" data-status="reading" type="button">Reading</button>
+          <button class="status-btn" data-status="done" type="button">Done</button>
+          <button class="status-btn" data-status="archived" type="button">Archived</button>
+        </div>
+      </div>
+      <div class="head-status">
+        <span class="hs-label">Research</span>
+        <span class="hm-val">不基于任何研究项目</span>
+      </div>
+
+    </header>
+
+    <section class="submod abstract-first" aria-label="Abstract 原文">
+      <h3 id="sub-abstract">Abstract（原文）</h3>
+      <details class="abstract-box">
+        <summary>展开 / 收起 Abstract 原文</summary>
+        <div class="abstract-text">We introduce Context Language Models (CLMs), language models that natively manage their own context. We implement this by treating the context as a file and allowing the model to make unrestricted updates to this file. This allows the model to learn what is most important to maintain in context, and naturally extends to multi-agent systems where multiple agent contexts coexist as files. Building CLMs zero-shot with existing models outperforms SOTA context management strategies across a variety of tasks: 11.4% higher accuracy with 21.5% fewer FLOPs on BrowseComp-Plus, 5% higher scores with 59% fewer FLOPs on 12-hour EdgeBench, and 65% greater improvement with the same compute on a 24-hour multi-repository agent-swarm task. Moreover, by shifting context management from external harness control to intrinsic model behavior, CLMs naturally enable both in-context and parametric learning of context-management strategies. We show that CLMs can be steered with natural-language instructions evolved through a standard skill-optimization loop, improving held-out accuracy by up to 35.9 points on a context-management task while reducing compute. We also introduce an online reinforcement learning method for CLMs, improving Qwen3.5-9B performance on BrowseComp-Plus by 47.6% while using 12% fewer FLOPs. Finally, we co-design Suffix Cache Reuse for CLM serving, further reducing server-side compute by 35% relative to standard SGLang at matched performance.</div>
+      </details>
+    </section>
+
+    <section class="module reader-block" id="sec-overview">
+      <h2 class="sec-h"><span class="sec-index">01</span><span class="sec-name">论文速览</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">先用几段话回答：这篇文章为什么要做、具体想解决什么、怎样做、最后得出了什么结论。</p>
+
+      <div class="overview-grid">
+        <div class="overview-item">
+          <h3>研究背景</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_background" data-placeholder="已有认识、现实问题与研究缺口…"><p>长程智能体需要在很多轮交互中保留事实、删除噪声并继续推理。已有上下文管理多由外部 harness 固定压缩时机和动作，或只提供压缩、卸载、检索等受限工具；这些策略在信息保留、原值更新和长任务适应上会失效。论文试图把“如何修改自己的实时上下文”变成语言模型可直接控制和学习的能力。</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究目标</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_question" data-placeholder="作者真正想回答的问题或验证的假设…"><p>把模型的实时上下文映射为可编辑文件，让模型通过通用 Bash 操作自主重写上下文，能否在长程检索、编码与开放发现问题中同时提高效果和计算效率？这种能力能否通过文本指令、技能演化和强化学习进一步获得，并通过服务端缓存复用降低编辑后的重算成本？</p></div>
+        </div>
+        <div class="overview-item">
+          <h3>研究内容</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_approach" data-placeholder="主要方法、研究设计或数据构建方式…"><ol class="markdown-list"><li><strong>把上下文变成可编辑状态</strong>：定义模型控制的转移 $c_{t+1}=f_\theta^{CLM}(c_t)$，将实时上下文镜像为文件；模型用 Bash 原位修改后，文件内容会同步回下一次模型调用，多个上下文文件也支持子智能体与 agent swarm。</li><li><strong>用独立诊断和多类长程任务检验效果</strong>：ContextBench 构造 Needle Retention、Sudoku Sketchpad、KV Store 与 Log Triage 四类任务；随后在 TerminalBench 2.1、TBLite、BrowseComp-Plus、数学优化、EdgeBench-10 与 Software World 上做零样本比较。</li><li><strong>检验可学习性</strong>：先用一句自然语言指令改变压缩策略，再用 proposer 演化可复用技能文档；强化学习采用逐段 GRPO，并在成功轨迹内部用 prefix-reuse FLOPs 排序，形成 success-gated efficiency advantage。</li><li><strong>降低编辑后的服务成本</strong>：Suffix Cache Reuse 把原文中仍然保留下来的后缀 KV 状态迁移到新位置并重算 rotary position，保留少量陈旧状态，以换取避免整段重新 prefill；同时为线性注意力层保留 recurrent-state 快照。</li></ol></div>
+        </div>
+        <div class="overview-item overview-conclusion">
+          <h3>主要结论</h3>
+          <div class="field-text editable" contenteditable="true" data-field="guide_findings" data-placeholder="最重要的发现、结果或方法价值…"><ol class="markdown-list"><li><strong>零样本 CLM 在多项长程任务上改善效果或成本</strong>：Qwen3.6-27B 在 BrowseComp-Plus 上达到 <strong>59.4%</strong>，相对最强 Codex-style summary 基线高 <strong>11.4%</strong>，prefix-reuse FLOPs 少 <strong>21.5%</strong>；在 TerminalBench 2.1 匹配基线且只用其 <strong>70%</strong> FLOPs，在 TBLite 达到 <strong>73.7%</strong>，高于基线的 67.0%。</li><li><strong>开放发现与仓库优化也出现收益</strong>：EdgeBench-10 上 CLM 得分为 <strong>44.6</strong>、179 PFLOPs，summary 基线为 42.3、437 PFLOPs；Software World 在同一 API 支出下报告了 <strong>65%</strong> 更大的下游加速。数学优化四题中 CLM 的 best-of-run 分数均最高，但每题仅运行一次。</li><li><strong>上下文策略可以显式引导和演化</strong>：一句提示可改变压缩阈值、语义边界与备份行为；技能演化在 ContextBench 的 KV Store held-out split 上把准确率从 <strong>38.3% 提高到 74.2%</strong>，增加 35.9 个百分点。</li><li><strong>强化学习让较小模型学会更省的计算路径</strong>：Qwen3.5-9B 在 BrowseComp-Plus 上由 <strong>28.8% 升到 42.5%</strong>，相对提升 47.6%，推理成本由 1.52 降至 <strong>1.34 PFLOPs/question</strong>；同配方训练的 summary harness 达到 42.1%。</li><li><strong>SCR 在匹配准确率时降低服务端计算</strong>：在 830 个 BCP 问题上，SCR 保持 <strong>60.2%</strong> 准确率，使用标准 SGLang 的 <strong>65%</strong> prefix-reuse FLOPs；其中 7.8% 的额外可复用 prompt tokens 有 5.3 个百分点来自聊天历史中的 reasoning-token 删除，说明该方法也适用于普通推理模型服务。</li></ol></div>
+          <div class="field-text editable" contenteditable="true" data-field="guide_insight" data-placeholder="这些结果意味着什么，解释边界在哪里…"><p>结果支持一种更主动的上下文管理方式：模型直接决定保留、重写或删除哪些状态，能够减少固定摘要策略造成的信息损失和无效重算。技能演化与 RL 的结果进一步表明，上下文管理可以作为可学习的过程能力，并可通过 FLOPs 奖励在成功轨迹内部优化效率。证据主要覆盖指定模型、harness 和长程任务；可编辑上下文是否在未知任务与安全攻击下保持优势仍需检验，SCR 的有效性也依赖其对陈旧缓存状态的近似。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="module reader-block" id="sec-deepread">
+      <h2 class="sec-h"><span class="sec-index">02</span><span class="sec-name">原文精读</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">沿着原文的章节顺序，区分每一节说了什么，以及这些内容如何支撑论文的论证。</p>
+
+      <div class="submod">
+        <h3 id="sub-sections">分章节总结与分析</h3>
+        <div id="sectionsContainer"><div class="sections-list"><section class="sec-card" data-index="0" data-num="" data-heading="Abstract" data-page="1"><div class="sec-head"><span class="sec-num"></span><h3>Abstract</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>摘要提出 <strong>Context Language Models</strong>：把实时上下文当作文件，让模型自由修改。报告的四组证据分别覆盖 BrowseComp-Plus、EdgeBench、24 小时多仓库 agent swarm、技能演化和 RL，并给出 <strong>Suffix Cache Reuse</strong> 的服务端计算收益。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>摘要把多个实验、预算和参照对象压缩在一段话中：11.4% 指相对最强基线的准确率提升，5% EdgeBench 增益与 35.9 点技能演化增量各有不同口径。阅读主文时应按任务、模型、计算预算和评价单位逐项核对，避免把这些百分比视为同一种效应。</p></div></div></section><section class="sec-card" data-index="1" data-num="1" data-heading="Introduction" data-page="1"><div class="sec-head"><span class="sec-num">1</span><h3>Introduction</h3><span class="sec-page">p.1</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>引言把长程上下文管理描述为语言模型的缺失能力：已有工作依赖固定 harness 或受限工具，而 CLM 允许模型自行决定如何重写上下文。作者将形式化定义、ContextBench、prefix-reuse FLOPs、技能演化、RL 与 SCR 组织为一条论证线。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>“The Bitter Lesson”式叙述提供了研究动机，尚未构成机制证据。该节汇集了后面多个实验的结论，许多跨任务收益属于预报告；真正可检验的关键是 §5 中是否有匹配预算、相同 harness 与可重复评测支持这些说法。</p></div></div></section><section class="sec-card" data-index="2" data-num="2" data-heading="Related Work" data-page="3"><div class="sec-head"><span class="sec-num">2</span><h3>Related Work</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>相关工作按 <strong>harness 调度</strong>与<strong>模型受控动作</strong>两条路线组织。固定摘要、定期压缩和受限的压缩/卸载/检索工具增加了模型自主性，但仍把可执行动作和策略交给外部系统预先规定；RLM 则关注读取输入，未提供实时历史的原位改写。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这种分类清楚地把“何时/怎样改上下文”与“怎样读取外部输入”分开。作者对现有系统的定位来自文献比较，本文未重跑这些系统；因此“更充分的编辑自由带来更好策略”仍是待实验检验的假设，不能从 taxonomy 直接得出。</p></div></div></section><section class="sec-card" data-index="3" data-num="3" data-heading="Pilot Study with ContextBench: A Diagnostic for Context Management" data-page="3"><div class="sec-head"><span class="sec-num">3</span><h3>Pilot Study with ContextBench: A Diagnostic for Context Management</h3><span class="sec-page">p.3</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>试点引入 ContextBench 的四个任务：逐字保留 needle、原位更新数独、从大值批次卸载与检索 KV，以及从日志批次回答计数/查找。32K 窗口下压力升至 24×，用于暴露摘要丢失、整表重写和无法按需逐出上下文等失败。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>任务刻意降低推理负担，使表现更接近纯粹上下文管理能力；方法专属 skill 也帮助排除工具使用误解。图形和文字描述了基线失败，本节没有单独给出数值表，因而更适合作为诊断设计依据，不能独立支持 CLM 相对基线的整体优势。</p></div></div></section><section class="sec-card" data-index="4" data-num="4" data-heading="Context Language Models (CLMs)" data-page="4"><div class="sec-head"><span class="sec-num">4</span><h3>Context Language Models (CLMs)</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>该节是 CLM 方法总入口，正文只有标题；具体形式化、学习路径与服务优化分别放在 4.1–4.3。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>保留顶层标题有助于阅读层级。单独阅读这一块无法得到机制细节，后续分析应回到三个小节区分<strong>接口自由度</strong>、<strong>训练目标</strong>与<strong>服务近似</strong>。</p></div></div></section><section class="sec-card lvl3" data-index="5" data-num="4.1" data-heading="Formal Definition and Implementation with Context as a File" data-page="4"><div class="sec-head"><span class="sec-num">4.1</span><h3>Formal Definition and Implementation with Context as a File</h3><span class="sec-page">p.4</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>标准 LM 只能把输出追加到历史，CLM 则允许任意由模型控制的上下文转移。实现把实时上下文映射为可写文件，模型通过 Bash 增删、重排或压缩；每个修改同步给下一次 LLM 调用。多个上下文文件可支持子智能体与 agent swarm。图 3 展示了维护状态板、添加内部 notes 角色、用循环压缩搜索结果和定义复用函数等行为。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>文件接口使模型能执行任意编辑，但可用行为仍受 Bash、system prompt、文件路径与同步实现约束，“unrestricted”描述的是编辑空间的开阔程度。定性案例来自零样本运行，有助于说明能力形态，不能量化这些策略对成绩的贡献。实时可写状态还扩大了持久化注入面。</p></div></div></section><section class="sec-card lvl3" data-index="6" data-num="4.2" data-heading="In-Context Learning and Reinforcement Learning for CLMs" data-page="5"><div class="sec-head"><span class="sec-num">4.2</span><h3>In-Context Learning and Reinforcement Learning for CLMs</h3><span class="sec-page">p.5</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>CLM 可通过三种方式学习上下文策略：在 prompt 中加入技能或指令；用 proposer 在训练 rollout 上提出候选技能，在开发集选择并最后测 held-out；用 stepwise GRPO 将完整轨迹结果优势广播到各模型调用。<strong>success-gated efficiency advantage</strong> 只在成功轨迹内部按 prefix-reuse FLOPs 奖励低成本样本，并裁剪到 [-1,1]。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>成功门控避免了直接奖励“删得多”导致的信息破坏，FLOPs 项也同时考虑编辑触发的重算。组内成功轨迹少于两条时效率优势置零，这在困难任务上会让效率信号稀疏；训练稳定性、不同 KL/权重设置与 reward hacking 仍未在本节展开。</p></div></div></section><section class="sec-card lvl3" data-index="7" data-num="4.3" data-heading="(More) Efficient CLM Serving with Suffix Cache Reuse" data-page="6"><div class="sec-head"><span class="sec-num">4.3</span><h3>(More) Efficient CLM Serving with Suffix Cache Reuse</h3><span class="sec-page">p.6</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>SCR 处理原位编辑导致的缓存失配。若原上下文为 [A B C]、编辑后为 [A B' C]，标准 prefix cache 会重新 prefill B' 与 C；SCR 迁移仍存活的 C 缓存、重算位置编码，并只对 B' 或新文本重新计算。存活的缓存状态来自编辑前上下文，因此保留了一定陈旧信息。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该方法把节省重算建立在<strong>近似状态复用</strong>上，而非精确重算；准确率保持需要经验验证。它也不替代 CLM 的上下文策略，服务端优化只影响相同行为下的成本，判断主结果时应把零样本效果与 SCR 节省分开。</p></div></div></section><section class="sec-card" data-index="8" data-num="5" data-heading="Results" data-page="7"><div class="sec-head"><span class="sec-num">5</span><h3>Results</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>结果主节依次组织零样本长程任务、上下文与权重学习以及 SCR 服务评测。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>此块只含标题，没有独立证据。各子节使用不同模型、任务长度和预算，应分别解释，不能合并成单一“总体准确率”。</p></div></div></section><section class="sec-card lvl3" data-index="9" data-num="5.1" data-heading="Evaluating CLMs  Zero-Shot  on Long-Horizon Agentic Tasks" data-page="7"><div class="sec-head"><span class="sec-num">5.1</span><h3>Evaluating CLMs  Zero-Shot  on Long-Horizon Agentic Tasks</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>零样本测试覆盖终端编码、深度研究、数学发现、单仓库优化和多仓库 swarm，时间尺度从数小时到一天，交互从数十轮到上千轮。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这一节说明评测覆盖的<strong>时间与协作维度</strong>，具体模型、预算与指标在 5.1.1–5.1.2 展开。广泛任务列表本身不提供可比性；需要核对每个子实验是否使用相同 backbone、上下文窗口和成本口径。</p></div></div></section><section class="sec-card lvl3" data-index="10" data-num="5.1.1" data-heading="Coding and Deep Research Tasks" data-page="7"><div class="sec-head"><span class="sec-num">5.1.1</span><h3>Coding and Deep Research Tasks</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>在共享 Mini-SWE-Agent 与 32K 预算下，Qwen3.6-27B 的 CLM 在 BCP 得 <strong>59.4%</strong>，相对 Codex-style summary 高 11.4%，并用少 21.5% 的 prefix-reuse FLOPs。TerminalBench 2.1 匹配最强基线且只使用其 70% 计算；TBLite 达到 73.7%，对基线的 67.0%，计算为其 91%。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>BCP 的相对增益与 TBLite 的绝对百分点差都支持工程收益。这里的“match”意味着未观察到优于 summary 的准确率，优势集中在计算效率。所有方法共享 harness 和模型的描述增强了可比性，但方法专属技能与不同的上下文交互仍属于复合干预。</p></div></div></section><section class="sec-card lvl3" data-index="11" data-num="5.1.2" data-heading="Open Discovery Problems" data-page="7"><div class="sec-head"><span class="sec-num">5.1.2</span><h3>Open Discovery Problems</h3><span class="sec-page">p.7</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>开放发现问题包括四个 AlphaEvolve/OpenEvolve 数学题、EdgeBench-10 的单仓库 12 小时优化，以及 Software World 中六个相互依赖仓库、四个 unseen downstream 包的 24 小时协作。CLM 在数学题四题的 best-of-run 分数均最高；EdgeBench 上为 44.6/179 PFLOPs 对 42.3/437，Software World 在同一支出下报告 65% 更大下游加速。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这些任务把上下文管理放在真实的工具循环、验证器反馈与长时间交互中，外部效度强于 ContextBench。数学题每题仅一次运行并使用 best-of-run；Software World 的成本按 <strong>API USD</strong> 计算，摘要中的 “same compute” 与该口径不完全相同。EdgeBench 的子智能体版本在 32K 下只增加少量收益，说明多文件多 agent 并不自动获益。</p></div></div></section><section class="sec-card lvl3" data-index="12" data-num="5.2" data-heading="Learning Better Context-Management Strategies in  Context  or in  Weights" data-page="8"><div class="sec-head"><span class="sec-num">5.2</span><h3>Learning Better Context-Management Strategies in  Context  or in  Weights</h3><span class="sec-page">p.8</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>一句自然语言指令就能改变压缩触发阈值、在子问题边界压缩以及压缩前备份的行为。技能演化在 ContextBench 上扩展准确率–成本 Pareto 前沿；assisted 与 self-evolution 分别在 KV Store 上优于初始策略。Qwen3.5-9B 经 RL 后 BCP 由 28.8% 升到 42.5%，同配方 summary 达到 42.1%；CLM 后训练使用 1.34 PFLOPs/question，后者为 2.19。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>指令实验揭示模型可被显式引导，技能演化则测试了可复用过程知识；两者都属于模型能力的可学习性证据。RL 结果只在单一较小基座、一个训练域和一个 held-out benchmark 上呈现，训练随机性没有在本节量化。前训练 CLM 落后 summary 六点，也说明较小模型的自主上下文能力需要训练补足。</p></div></div></section><section class="sec-card lvl3" data-index="13" data-num="5.3" data-heading="(More) Efficient Serving with Suffix Cache Reuse" data-page="9"><div class="sec-head"><span class="sec-num">5.3</span><h3>(More) Efficient Serving with Suffix Cache Reuse</h3><span class="sec-page">p.9</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>在与标准 SGLang 匹配的任务准确率 <strong>60.2%</strong> 下，SCR 只需 <strong>65%</strong> 的 prefix-reuse FLOPs，即降低约 35%。它也能利用聊天端点为隐藏 reasoning 而删去旧 token 的情况；830 题 BCP 上所有 prompt token 中，额外复用率 7.8 个百分点，其中 5.3 来自 reasoning stripping、2.5 来自其他上下文编辑。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>匹配准确率让服务优化具有较强实用意义；结果主要集中在 Qwen3.6-27B 的 BCP 负荷，尚未证明对全部任务和模型无损。FLOPs 节省是模型计算估计，页面还报告 wall-clock 之外的服务端 token 构成，真实吞吐与能耗仍需单独测量。</p></div></div></section><section class="sec-card" data-index="14" data-num="6" data-heading="Discussion and Future Work" data-page="10"><div class="sec-head"><span class="sec-num">6</span><h3>Discussion and Future Work</h3><span class="sec-page">p.10</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>讨论首先指出模型可编辑上下文的安全风险：自生成指令或 prompt injection 可跨轮持久化，已有 compaction summary 中出现过未授权指令。未来方向包括扩大 CLM 的 RL，以及把现有 harness 的上下文变换蒸馏为 CLM 技能或权重。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>安全讨论把权限边界放在方法核心之上；当前实验只测能力与效率，没有测恶意编辑、隔离、回滚或审计。harness-to-CLM 蒸馏被表述为研究计划，尚无对应的效果与资源结果，不能当成已验证的扩展路线。</p></div></div></section><section class="sec-card" data-index="15" data-num="" data-heading="A. Extended Related Work" data-page="13"><div class="sec-head"><span class="sec-num"></span><h3>A. Extended Related Work</h3><span class="sec-page">p.13</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>附录按 harness 调度、受限动作空间、meta-harness 优化、REPL 变量、非前缀 KV 复用、上下文管理 RL、成功条件化效率目标和外部记忆展开。CLM 的区分点是让模型直接改写自身实时状态，并把外部 memory 与 live context 明确分开。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该综述较完整地连接了 agent harness、serving cache 与 memory 三条文献线，支持论文的跨层定位。比较仍以概念与引用为主，没有逐系统复跑；因此它说明设计空间，而不提供各机制的相对效果。</p></div></div></section><section class="sec-card" data-index="16" data-num="" data-heading="B. Suffix Cache Reuse" data-page="14"><div class="sec-head"><span class="sec-num"></span><h3>B. Suffix Cache Reuse</h3><span class="sec-page">p.14</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>SGLang 的 radix tree 只复用最长相同前缀。SCR 对编辑前后的 prompt 做 diff，找到仍存活的后缀 span，迁移最多 K=6 个最长 span，重旋转 rotary keys；线性注意力层使用编辑前的 recurrent-state 快照。对多个存活 span，SCR 限制迁移数量以控制近似累积。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>SCR 的实现细节说明收益来自避免重算未变文本，其正确性依赖旧状态与当前上下文差异可接受。线性注意力层继续从编辑前 snapshot 推进，可能使新增编辑内容在该层缺失，论文依赖后续完整 attention 层传播影响。K 的敏感性与准确率保持只在 64 题、一个模型上分析，泛化仍需扩大。</p></div></div></section><section class="sec-card" data-index="17" data-num="" data-heading="C. Prefix-Reuse FLOPs Computation" data-page="17"><div class="sec-head"><span class="sec-num"></span><h3>C. Prefix-Reuse FLOPs Computation</h3><span class="sec-page">p.17</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>附录给出每 token 投影、MLP、attention score 与 decode 的 FLOPs 公式，并以 Qwen3.6-27B 的层数、hidden size、attention heads 和 Gated DeltaNet 结构代入。编辑造成 first mismatch 后，后续 token 需重新 prefill；illustrative 例子中起始编辑可让 turn 成本达到 append-only 的 7.7 倍。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该指标适合比较相同模型下编辑策略的计算负担，属于理论估计：忽略 embedding、归一化、激活、recurrent update 与硬件利用率。它能解释 prefix cache 的差别，不能直接替代 wall-clock 延迟、吞吐或美元成本。</p></div></div></section><section class="sec-card" data-index="18" data-num="" data-heading="D. ContextBench" data-page="18"><div class="sec-head"><span class="sec-num"></span><h3>D. ContextBench</h3><span class="sec-page">p.18</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>ContextBench 把输入作为连续 user messages 推入上下文，模型只能在处理当前操作后请求下一项；每实例由 seed 生成并预检。任务针对保留、原位更新、KV 卸载检索与日志查询，评分检查模型当时拥有的上下文，磁盘中未被重新取回的内容不计分，并为任务与保留状态设置窗口预算。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这一协议把上下文管理从推理能力中分离出来，且给所有方法提供方法专属 skill，比较设计较透明。合成操作与固定 grader 提高可控性，也带来真实性缺口：自然语言歧义、工具副作用和长文档权限没有纳入。该基准适合作为机制诊断，不能单独代表生产智能体能力。</p></div></div></section><section class="sec-card" data-index="19" data-num="" data-heading="E. Experimental Configurations" data-page="19"><div class="sec-head"><span class="sec-num"></span><h3>E. Experimental Configurations</h3><span class="sec-page">p.19</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>附录列出每个系统的压缩策略与 skill，以及 ContextBench、TB2.1、TBLite、BCP、数学优化、EdgeBench-10、Software World、指令控制、技能演化和 RL 的模型、预算、turn/time limit、seeds 与评分。RL 配置包含 3,040 prompts、70 steps、每步 8 prompts×32 rollouts、16 张策略 GPU 与 48 张 rollout GPU。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>这些细节提高了实验透明度，也显示评测混合了 API 模型、公开任务、长时分容器运行等多个平台，复现门槛很高。不同实验的 context budget、turn limit 和 judge 不完全相同，横跨任务比较时应回到各自配置，尤其不能把 BCP FLOPs 与 EdgeBench 长时间成本等同。</p></div></div></section><section class="sec-card" data-index="20" data-num="" data-heading="F. Supplementary Results" data-page="24"><div class="sec-head"><span class="sec-num"></span><h3>F. Supplementary Results</h3><span class="sec-page">p.24</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>补充结果比较 Qwen3.5-9B 与 Qwen3.6-27B：较小模型编辑更少，中位峰值上下文更高，收益也更依赖模型能力。128K EdgeBench 中 CLM 为 47.3、subagent 版本 50.2，summary 47.8；技能演化在四个 ContextBench 任务的开发集显著提升，KV Store held-out 从 38.3% 到 74.2%；RL 训练曲线展示 accuracy 与 FLOPs 的变化。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>规模对比支持“模型越能判断何时编辑，收益越大”的假设，不过两个模型属于同一家族且训练与推理配置不同。128K 下子智能体带来额外收益，而 32K 下收益很小，说明收益随预算和协作负载变化。补充结果仍未提供跨任务训练 seed 的完整不确定性。</p></div></div></section><section class="sec-card" data-index="21" data-num="" data-heading="G. Analysis on the Context Length Awareness of Existing LMs" data-page="27"><div class="sec-head"><span class="sec-num"></span><h3>G. Analysis on the Context Length Awareness of Existing LMs</h3><span class="sec-page">p.27</span></div><div class="sec-body"><div class="sec-label">本节总结</div><div class="field-text sec-summary editable" contenteditable="true" data-placeholder="本节讲了什么…"><p>通过让模型估计当前 prompt 的 token 数，论文发现长上下文下估计会聚集到固定桶值；Claude-4.6-Sonnet 倾向低估，GPT-5.4 的估计最接近实际。环境提供 token-count hint 能提升准确性，距离估计点更近的 hint 更有效。</p></div><div class="sec-label sec-label-analysis">研究关联与分析</div><div class="field-text sec-analysis editable" contenteditable="true" data-placeholder="与牙科基准的关联…"><p>该诊断解释了为什么 CLM 仍需要 2,048-token 余量提醒和外部 token 信息：自我管理要求模型知道何时接近窗口上限。实验只有每个模型 50 个输入，细节主要在图中；它支持 awareness 是限制，不能说明所有模型都会以同样方式失效。</p></div></div></section></div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-quotes">关键引文</h3>
+        <div id="quoteContainer"><div class="field-text" style="color:var(--ink-faint);font-style:italic;">尚无关键引文。在 Zotero 高亮会自动出现在下方"Highlights from Zotero"。</div></div>
+      </div>
+
+      <div class="submod">
+        <h3 id="sub-figures">论文图表</h3>
+        <div id="figuresContainer"><div class="figures-grid"><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig01.png" alt="Figure p.2" loading="lazy"><div class="figure-meta"><span>p.2</span><span>5000×2180</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig02.png" alt="Figure p.4" loading="lazy"><div class="figure-meta"><span>p.4</span><span>1320×1440</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig03.png" alt="Figure p.4" loading="lazy"><div class="figure-meta"><span>p.4</span><span>1320×1440</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig04.png" alt="Figure p.4" loading="lazy"><div class="figure-meta"><span>p.4</span><span>1320×1440</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig05.png" alt="Figure p.4" loading="lazy"><div class="figure-meta"><span>p.4</span><span>1320×1440</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig06.png" alt="Figure p.6" loading="lazy"><div class="figure-meta"><span>p.6</span><span>5100×819</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig07.png" alt="Figure p.15" loading="lazy"><div class="figure-meta"><span>p.15</span><span>5100×1632</span></div></div><div class="figure-card"><img src="local-8ff6ed83_images/local-8ff6ed83_fig08.png" alt="Figure p.27" loading="lazy"><div class="figure-meta"><span>p.27</span><span>5600×1400</span></div></div></div></div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-highlights">Zotero 高亮</h3>
+        <div class="info-box">
+          <span class="info-label">Highlights from Zotero (0)</span>
+          <div id="highlightsBox"><div style="color:var(--ink-faint);font-style:italic;">未检测到 PDF 高亮。摘要基于 abstract 生成。</div></div>
+        </div>
+      </div>
+
+      <div class="submod module-zotero">
+        <h3 id="sub-notes">Zotero 笔记</h3>
+        <div class="info-box">
+          <span class="info-label">Notes from Zotero</span>
+          <div id="notesBox"><div style="color:var(--ink-faint);font-style:italic;">无 Zotero 笔记。</div></div>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="module reader-block" id="sec-relevance">
+      <h2 class="sec-h"><span class="sec-index">03</span><span class="sec-name">参考意义</span><span class="sec-hint">右侧批注 ›</span></h2>
+      <p class="block-lede">把论文放回实际研究和复现决策中：它有什么价值，代价和风险是什么，还留下哪些问题。</p>
+
+      <div class="relevance-grid">
+        <div class="relevance-item">
+          <h3>风险与局限</h3>
+          <ol class="editable-list" contenteditable="true" data-field="risks"><li><strong>机制归因未完全隔离</strong>：CLM 同时获得上下文文件、Bash 编辑接口、同步机制与预算提醒。基线各自带有方法特定技能，因此比较的是整套系统；缺少“能编辑同一文件但不被要求维护上下文”或等提示长度的对照。</li><li><strong>相对百分比容易被误读</strong>：BCP 的 11.4% 指相对最强基线的比例，5% EdgeBench 增益与 47.6% RL 提升也分别对应不同参照。这些数字不能直接解释为绝对百分点。</li><li><strong>部分压力测试证据较薄</strong>：数学优化每题只运行一次并按 best-of-run 比较，Software World 只报告单一成本口径和总体 speedup；文中没有给这些结果的任务级不确定性区间。</li><li><strong>SCR 使用近似缓存状态</strong>：迁移的 KV 由编辑前前缀计算，线性注意力层继续使用编辑前 recurrent state；准确率保持来自特定模型和 BCP 评测，不能保证在其他编辑模式或任务上无损。</li><li><strong>安全与隐私边界未测</strong>：可编辑上下文可以持久化自生成指令和 prompt injection。讨论章节将其列为未来工作，没有提供攻击成功率、隔离机制或数据泄漏实验。</li><li><strong>模型与运行成本限制可复现性</strong>：主实验涉及 GPT、Claude 与 Qwen 系列及 12–24 小时运行；RL 使用 16 张 H200 训练策略并另用 48 张 rollout GPU，完整资源与版本披露仍不足以在普通环境中独立重跑。</li><li><strong>评测得分存在 judge 依赖</strong>：BrowseComp-Plus 使用 Qwen3.5-27B 按模板判分；ContextBench 有确定性 grader，但长程真实任务的最终质量仍部分依赖模型 judge。</li></ol>
+          <div class="field-text editable" contenteditable="true" data-field="guide_limitations" data-placeholder="最重要的边界、威胁或替代解释…"><p>实验依赖多套昂贵的长时分模型评测和 API 模型，部分结论由相对百分比、best-of-run 或单一训练运行给出。ContextBench 是合成的上下文诊断任务，数学优化每题只运行一次；Software World 的摘要使用“same compute”，正文实际按累计 API 支出计成本。模型可编辑上下文还扩大了持久化 prompt injection 的攻击面，论文提出了风险，没有给出系统防御实验。</p></div>
+        </div>
+        <div class="relevance-item">
+          <h3>成本与复现条件</h3>
+          <div class="field-text editable" contenteditable="true" data-field="cost" data-placeholder="复现本文需要多少数据、算力、专家或工程投入…"><p>最小规模复现需要能执行 Bash 的 agent runtime、实时上下文文件与同步服务、对应模型 endpoint、任务/评测框架和请求级 token/FLOPs 日志。零样本主实验使用 Qwen3.6-27B 等多模型，BCP 配置为全 830 题、100 turns；EdgeBench-10 每题运行 12 小时、3 seeds；Software World 持续 24 小时以上。技能演化与 RL 的算力明显更高：RL 训练 70 步，每步 8 个 prompt、每个 32 条 rollout，并列出 16+48 张 H200 的划分。代码链接已给出，但论文笔记未独立检查发布仓库、模型权重和第三方 benchmark 的可访问性。</p></div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>与我研究的关联</h3>
+          <div class="key-concept">
+            <span class="kc-label">Why this matters</span>
+            <div class="field-text editable" contenteditable="true" data-field="relevance_to_my_work" data-placeholder="与当前研究的具体问题、设计选择或测量难题的关联…"><p>一般研究价值在于为长程智能体与数据合成提供一套可观测的上下文接口：可以把每次上下文编辑记录为状态变更，把事实保留、原位更新、卸载与检索分开测试，并在训练或筛选数据时同时记录效果和 prefix-reuse 成本。对需要多文件工作区或验证器的任务，CLM 的思路提示将“隐藏中间状态”和“模型可见状态”明确分层；对上下文相关的训练数据，还应加入注入、过时缓存和错误重写等对抗样本。此处只讨论通用研究意义，没有关联任何特定个人项目。</p></div>
+          </div>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3 id="sub-questions">待追问</h3>
+          <ol class="editable-list" contenteditable="true" data-field="open_questions"><li>在相同 prompt 长度、相同文件访问权限和相同预算提醒下，仅开启实时上下文改写能带来多少独立收益？</li><li>哪些编辑模式最容易导致事实丢失、权限泄漏或持久化注入？能否为上下文文件建立可验证的写前约束和审计日志？</li><li>把 SCR 的缓存近似与任务风险联系起来，能否按编辑跨度、注意力层类型和 token 位置给出误差界？</li><li>在真实团队协作、多智能体共享状态与长文档编辑中，模型控制的上下文能否保持可解释性并支持回滚？</li><li>RL 的效率优势能否跨任务域、跨模型规模迁移，还是会被特定 training reward 与 judge 偏置放大？</li><li>ContextBench 的四项任务与真实长程任务之间的相关性如何，哪些新增压力因素最能预测 agent 的长期表现？</li><li>开放实验与模型资源后，外部团队能否在固定硬件上复现 BCP、EdgeBench 与 SCR 的关键数值？</li></ol>
+        </div>
+        <div class="relevance-item relevance-wide">
+          <h3>我的笔记</h3>
+          <div class="key-concept">
+            <span class="kc-label">Your notes · 支持 Markdown 与 LaTeX 公式</span>
+            <div class="field-text editable" contenteditable="true" data-field="custom_notes" data-placeholder="你自己的笔记、公式、待办… 行内用 $…$，独立公式用 $$…$$"><p><strong>阅读版本与来源</strong>：<a href="https://arxiv.org/abs/2609.37725" target="_blank" rel="noopener noreferrer">arXiv:2609.37725v1</a>，2026-09-29；作者 Rulin Shao 等。PDF 通过 arXiv 下载，正文由 PyMuPDF 文本抽取后按 PDF 目录与标题坐标重建为无重叠的 22 个章节/附录块。</p><p><strong>阅读路径</strong>：先看 §3 的 ContextBench 诊断，再沿 §4.1 的上下文文件、§4.2 的文本/RL 学习和 §4.3 的 SCR 机制阅读，最后用 §5 的结果与 Appendix E 的实验配置核对数字口径。</p><p><strong>证据分层</strong>：执行结果、held-out 评测与确定性 ContextBench grader提供较强的经验支持；数学优化的单次运行、模型 judge、专用基线与 SCR 的近似缓存构成主要边界。论文没有给出对上下文编辑功用的独立 ablation，因此“模型自主”这一解释需要保留。</p><p><strong>页数</strong>：PDF 共 27 页；主结果在 pp.1–9，实验配置与补充结果在 pp.19–27。</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <nav class="footnav">
+      <div>GENERATED 2026-11-11T18:14:55+0800 &middot; paper-notes</div>
+      <a href="../dashboard.html">← Back to Dashboard</a>
+    </nav>
+
+  </main>
+
+  <aside class="notes" id="notes">
+    <div class="notes-head">
+      <span class="notes-title">批注 · Notes</span>
+      <span class="notes-count" id="notesCount">0</span>
+    </div>
+    <div class="notes-list">
+      <div class="note-card" data-module="sec-overview">
+        <button class="note-jump" data-target="sec-overview" type="button"><span class="note-num">01</span><span class="note-name">论文速览</span></button>
+        <textarea class="note-area" data-module="sec-overview" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-deepread">
+        <button class="note-jump" data-target="sec-deepread" type="button"><span class="note-num">02</span><span class="note-name">原文精读</span></button>
+        <textarea class="note-area" data-module="sec-deepread" placeholder="对这一模块的备注…"></textarea>
+      </div>
+      <div class="note-card" data-module="sec-relevance">
+        <button class="note-jump" data-target="sec-relevance" type="button"><span class="note-num">03</span><span class="note-name">参考意义</span></button>
+        <textarea class="note-area" data-module="sec-relevance" placeholder="对这一模块的备注…"></textarea>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="importInput" accept=".json" style="display:none">
+
+<div class="lb-overlay" id="lbOverlay" aria-hidden="true">
+  <button class="lb-close" id="lbClose" type="button" aria-label="Close">×</button>
+  <div class="lb-stage">
+    <img class="lb-img" id="lbImg" alt="enlarged figure" src="">
+    <div class="lb-caption" id="lbCaption"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var ZKEY = "local-8ff6ed83";
+  var LS_KEY = "litreader:" + ZKEY + ":edits";
+  var LS_STATUS = "litreader:" + ZKEY + ":status";
+  var LS_ACCENT = "litreader:" + ZKEY + ":accent";
+  var LS_DIR = "litreader:" + ZKEY + ":dirhandle";
+  var INITIAL = {"objective": "论文把实时上下文镜像为模型可自由编辑的文件，并以 ContextBench、长程任务、技能演化和强化学习展示 CLM 在效果与计算上的收益，同时用 Suffix Cache Reuse 降低上下文改动后的重算开销。", "problem_landscape": "标准语言模型只把新生成 token 追加到上下文中，长程智能体的历史会持续增长并超出窗口。外部 harness 常按固定阈值压缩或卸载，受限动作接口也预先规定可做哪些修改。这类设计把策略与模型自身的任务推理分开，容易在压缩时丢失精确值、无法原位更新状态，并在每次编辑后触发大量 re-prefill。", "approach": "CLM 把实时上下文镜像到可写文件，系统每次模型调用前读取该文件，模型可用普通 Bash 命令增删、重排或函数化修改内容。形式化上将 append-only 转移替换为任意上下文更新函数。学习侧包含三类路径：在 prompt 中加入策略说明；让 proposer 根据训练 rollout 迭代技能文档并在开发集选择；用步长为模型调用的 GRPO 训练，轨迹级结果优势广播到各段，同时对成功轨迹按 prefix-reuse FLOPs 加效率优势。服务侧 SCR 识别编辑后仍存活的后缀 span，迁移缓存、重旋转 rotary key，并对线性注意力层使用编辑前 recurrent-state 快照；存活 span 数量上限为 K=6。", "impact": "提出了 **Context Language Models** 的抽象与以文件为接口的实现；给出 ContextBench 和 prefix-reuse FLOPs 两类测量工具；展示了零样本长程任务、文本指令控制、技能演化与 success-gated stepwise GRPO 的结果；提出并集成 Suffix Cache Reuse，使编辑后的未变后缀也可复用缓存。", "risks": ["**机制归因未完全隔离**：CLM 同时获得上下文文件、Bash 编辑接口、同步机制与预算提醒。基线各自带有方法特定技能，因此比较的是整套系统；缺少“能编辑同一文件但不被要求维护上下文”或等提示长度的对照。", "**相对百分比容易被误读**：BCP 的 11.4% 指相对最强基线的比例，5% EdgeBench 增益与 47.6% RL 提升也分别对应不同参照。这些数字不能直接解释为绝对百分点。", "**部分压力测试证据较薄**：数学优化每题只运行一次并按 best-of-run 比较，Software World 只报告单一成本口径和总体 speedup；文中没有给这些结果的任务级不确定性区间。", "**SCR 使用近似缓存状态**：迁移的 KV 由编辑前前缀计算，线性注意力层继续使用编辑前 recurrent state；准确率保持来自特定模型和 BCP 评测，不能保证在其他编辑模式或任务上无损。", "**安全与隐私边界未测**：可编辑上下文可以持久化自生成指令和 prompt injection。讨论章节将其列为未来工作，没有提供攻击成功率、隔离机制或数据泄漏实验。", "**模型与运行成本限制可复现性**：主实验涉及 GPT、Claude 与 Qwen 系列及 12–24 小时运行；RL 使用 16 张 H200 训练策略并另用 48 张 rollout GPU，完整资源与版本披露仍不足以在普通环境中独立重跑。", "**评测得分存在 judge 依赖**：BrowseComp-Plus 使用 Qwen3.5-27B 按模板判分；ContextBench 有确定性 grader，但长程真实任务的最终质量仍部分依赖模型 judge。"], "cost": "最小规模复现需要能执行 Bash 的 agent runtime、实时上下文文件与同步服务、对应模型 endpoint、任务/评测框架和请求级 token/FLOPs 日志。零样本主实验使用 Qwen3.6-27B 等多模型，BCP 配置为全 830 题、100 turns；EdgeBench-10 每题运行 12 小时、3 seeds；Software World 持续 24 小时以上。技能演化与 RL 的算力明显更高：RL 训练 70 步，每步 8 个 prompt、每个 32 条 rollout，并列出 16+48 张 H200 的划分。代码链接已给出，但论文笔记未独立检查发布仓库、模型权重和第三方 benchmark 的可访问性。", "experiments_results": "**零样本效果**：BCP 上 CLM 为 59.4%，相对 Codex-style summary 高 11.4%，少 21.5% FLOPs；TB2.1 匹配 summary 而使用 70% 计算；TBLite 为 73.7% 对 67.0%。**开放发现**：EdgeBench-10 的 Qwen3.6-27B 结果为 44.6 对 42.3，成本 179 对 437 PFLOPs；Software World 报告同预算下 65% 更大 speedup。**学习**：技能演化的 KV Store held-out 从 38.3% 到 74.2%；Qwen3.5-9B 的 RL 将 BCP 从 28.8% 提升到 42.5%，同时将成本从 1.52 降至 1.34 PFLOPs/question。**服务**：SCR 与标准 SGLang 同为 60.2% 准确率，计算为其 65%。\n\nContextBench 的四项任务是：Needle Retention，要求从约 4K-token 块中逐字保留 needle；Sudoku Sketchpad，要求每轮原位更新 16×16 棋盘；KV Store，要求从 100 条 SET 批次中准确回答 24 个 GET；Log Triage，要求对 14–54 行日志批次回答 24 个计数或查找查询。32,768-token 窗口预留 2,048 token 响应空间，单次操作与任务所需长期状态分别受预算约束。指标直接检查保存在模型上下文中的事实，仅存在于磁盘而未回到上下文的内容不计分。相比一般 agent benchmark，它更专门测量保留、原位编辑、卸载与检索；合成任务降低推理混杂，也限制了自然语言与真实业务复杂度的覆盖。", "relevance_to_my_work": "一般研究价值在于为长程智能体与数据合成提供一套可观测的上下文接口：可以把每次上下文编辑记录为状态变更，把事实保留、原位更新、卸载与检索分开测试，并在训练或筛选数据时同时记录效果和 prefix-reuse 成本。对需要多文件工作区或验证器的任务，CLM 的思路提示将“隐藏中间状态”和“模型可见状态”明确分层；对上下文相关的训练数据，还应加入注入、过时缓存和错误重写等对抗样本。此处只讨论通用研究意义，没有关联任何特定个人项目。", "custom_notes": "**阅读版本与来源**：[arXiv:2609.37725v1](https://arxiv.org/abs/2609.37725)，2026-09-29；作者 Rulin Shao 等。PDF 通过 arXiv 下载，正文由 PyMuPDF 文本抽取后按 PDF 目录与标题坐标重建为无重叠的 22 个章节/附录块。\n\n**阅读路径**：先看 §3 的 ContextBench 诊断，再沿 §4.1 的上下文文件、§4.2 的文本/RL 学习和 §4.3 的 SCR 机制阅读，最后用 §5 的结果与 Appendix E 的实验配置核对数字口径。\n\n**证据分层**：执行结果、held-out 评测与确定性 ContextBench grader提供较强的经验支持；数学优化的单次运行、模型 judge、专用基线与 SCR 的近似缓存构成主要边界。论文没有给出对上下文编辑功用的独立 ablation，因此“模型自主”这一解释需要保留。\n\n**页数**：PDF 共 27 页；主结果在 pp.1–9，实验配置与补充结果在 pp.19–27。", "guide_background": "长程智能体需要在很多轮交互中保留事实、删除噪声并继续推理。已有上下文管理多由外部 harness 固定压缩时机和动作，或只提供压缩、卸载、检索等受限工具；这些策略在信息保留、原值更新和长任务适应上会失效。论文试图把“如何修改自己的实时上下文”变成语言模型可直接控制和学习的能力。", "guide_question": "把模型的实时上下文映射为可编辑文件，让模型通过通用 Bash 操作自主重写上下文，能否在长程检索、编码与开放发现问题中同时提高效果和计算效率？这种能力能否通过文本指令、技能演化和强化学习进一步获得，并通过服务端缓存复用降低编辑后的重算成本？", "guide_approach": "1. **把上下文变成可编辑状态**：定义模型控制的转移 $c_{t+1}=f_\\theta^{CLM}(c_t)$，将实时上下文镜像为文件；模型用 Bash 原位修改后，文件内容会同步回下一次模型调用，多个上下文文件也支持子智能体与 agent swarm。\n2. **用独立诊断和多类长程任务检验效果**：ContextBench 构造 Needle Retention、Sudoku Sketchpad、KV Store 与 Log Triage 四类任务；随后在 TerminalBench 2.1、TBLite、BrowseComp-Plus、数学优化、EdgeBench-10 与 Software World 上做零样本比较。\n3. **检验可学习性**：先用一句自然语言指令改变压缩策略，再用 proposer 演化可复用技能文档；强化学习采用逐段 GRPO，并在成功轨迹内部用 prefix-reuse FLOPs 排序，形成 success-gated efficiency advantage。\n4. **降低编辑后的服务成本**：Suffix Cache Reuse 把原文中仍然保留下来的后缀 KV 状态迁移到新位置并重算 rotary position，保留少量陈旧状态，以换取避免整段重新 prefill；同时为线性注意力层保留 recurrent-state 快照。", "guide_findings": "1. **零样本 CLM 在多项长程任务上改善效果或成本**：Qwen3.6-27B 在 BrowseComp-Plus 上达到 **59.4%**，相对最强 Codex-style summary 基线高 **11.4%**，prefix-reuse FLOPs 少 **21.5%**；在 TerminalBench 2.1 匹配基线且只用其 **70%** FLOPs，在 TBLite 达到 **73.7%**，高于基线的 67.0%。\n2. **开放发现与仓库优化也出现收益**：EdgeBench-10 上 CLM 得分为 **44.6**、179 PFLOPs，summary 基线为 42.3、437 PFLOPs；Software World 在同一 API 支出下报告了 **65%** 更大的下游加速。数学优化四题中 CLM 的 best-of-run 分数均最高，但每题仅运行一次。\n3. **上下文策略可以显式引导和演化**：一句提示可改变压缩阈值、语义边界与备份行为；技能演化在 ContextBench 的 KV Store held-out split 上把准确率从 **38.3% 提高到 74.2%**，增加 35.9 个百分点。\n4. **强化学习让较小模型学会更省的计算路径**：Qwen3.5-9B 在 BrowseComp-Plus 上由 **28.8% 升到 42.5%**，相对提升 47.6%，推理成本由 1.52 降至 **1.34 PFLOPs/question**；同配方训练的 summary harness 达到 42.1%。\n5. **SCR 在匹配准确率时降低服务端计算**：在 830 个 BCP 问题上，SCR 保持 **60.2%** 准确率，使用标准 SGLang 的 **65%** prefix-reuse FLOPs；其中 7.8% 的额外可复用 prompt tokens 有 5.3 个百分点来自聊天历史中的 reasoning-token 删除，说明该方法也适用于普通推理模型服务。", "guide_insight": "结果支持一种更主动的上下文管理方式：模型直接决定保留、重写或删除哪些状态，能够减少固定摘要策略造成的信息损失和无效重算。技能演化与 RL 的结果进一步表明，上下文管理可以作为可学习的过程能力，并可通过 FLOPs 奖励在成功轨迹内部优化效率。证据主要覆盖指定模型、harness 和长程任务；可编辑上下文是否在未知任务与安全攻击下保持优势仍需检验，SCR 的有效性也依赖其对陈旧缓存状态的近似。", "guide_limitations": "实验依赖多套昂贵的长时分模型评测和 API 模型，部分结论由相对百分比、best-of-run 或单一训练运行给出。ContextBench 是合成的上下文诊断任务，数学优化每题只运行一次；Software World 的摘要使用“same compute”，正文实际按累计 API 支出计成本。模型可编辑上下文还扩大了持久化 prompt injection 的攻击面，论文提出了风险，没有给出系统防御实验。", "paper_type": ["method", "system", "empirical", "benchmark"], "keywords": ["上下文管理", "可编辑上下文", "长程智能体", "上下文语言模型", "强化学习", "Suffix Cache Reuse", "ContextBench"], "research_question": "核心问题是：由语言模型直接控制实时上下文的完整编辑，能否比外部 harness 的固定策略或受限工具更适合长程工作，并能通过提示、技能演化和强化学习持续改进？配套问题包括如何测量 context-management 能力、如何在编辑后复用 KV cache，以及这些收益是否能在不同模型规模与真实长程环境中保留。", "data_or_materials": "ContextBench 使用 **32K** 上下文限制与四类合成流式任务，支持 0.25× 至 24× 的上下文压力。主实验使用 TerminalBench 2.1（89 题）、OpenThoughts-TBLite、BrowseComp-Plus（830 题）、四个数学优化问题、EdgeBench-10（10/48 个任务、每题 3 个 seed）以及 Software World 的六个仓库和四个 held-out 下游包。技能演化使用 ContextBench；强化学习使用 3,040 个 OpenResearcher 训练 prompt，并在 BrowseComp-Plus 的 830 题上评测。", "interpretation": "论文最有说服力的部分是把上下文管理从固定摘要转化为可观察、可编辑的状态，并在多个长程环境中同时报告准确率与计算量。BCP、TerminalBench 与 EdgeBench 的结果共同支持“模型控制的压缩减少了重复推理或检索”这一工程判断。技能演化与 RL 说明该接口还提供了可学习的过程层，但跨模型、跨任务与长期稳定性仍需要独立实验。SCR 的贡献更靠近 serving：近似缓存让原位编辑变得可用，代价是状态与当前前缀不完全一致，适用边界必须按模型结构和任务风险评估。", "evidence_map": [{"claim": "CLM 把实时上下文镜像为可编辑文件，并支持多智能体上下文文件", "evidence": "§4.1, pp.4–5", "status": "reported"}, {"claim": "ContextBench 固定 32K 窗口并用四类合成任务测量上下文管理", "evidence": "§3 and Appendix D, pp.3 and 18–21", "status": "reported"}, {"claim": "BCP 上 CLM 为 59.4%，相对 summary 高 11.4%，少 21.5% FLOPs", "evidence": "§5.1.1, p.7", "status": "reported"}, {"claim": "TB2.1 匹配最强基线且使用 70% 计算；TBLite 为 73.7% 对 67.0%", "evidence": "§5.1.1, p.7", "status": "reported"}, {"claim": "EdgeBench-10 的 CLM 为 44.6/179 PFLOPs，summary 为 42.3/437 PFLOPs", "evidence": "§5.1.2 and Figure 6, p.8", "status": "reported"}, {"claim": "Software World 在同一支出下 downstream speedup 高 65%", "evidence": "§5.1.2 and Appendix E, pp.8 and 22–23", "status": "reported"}, {"claim": "技能演化在 KV Store held-out 上从 38.3% 到 74.2%", "evidence": "Appendix F, Figure 20, p.25", "status": "reported"}, {"claim": "Qwen3.5-9B 经 CLM RL 后 BCP 从 28.8% 到 42.5%，成本从 1.52 到 1.34 PFLOPs", "evidence": "§5.2, Table 2, p.8", "status": "reported"}, {"claim": "SCR 在 BCP 上保持 60.2% 并只使用标准 SGLang 的 65% FLOPs", "evidence": "§5.3, Figure 9, p.9", "status": "reported"}, {"claim": "CLM 的效果依赖模型自身管理上下文的能力，较小模型编辑更少", "evidence": "Appendix F, pp.24–25；Qwen3.5-9B 与 3.6-27B 的编辑次数和峰值上下文对比", "status": "reported"}, {"claim": "整体比较不能完全分离文件接口、同步机制、提示约束和模型行为的贡献", "evidence": "§4.1 与 Appendix E 的 method-specific skills；缺少同接口 ablations", "status": "supported_inference"}, {"claim": "SCR 的准确率保持受缓存近似约束，未证明为精确等价计算", "evidence": "Appendix B, pp.14–16；reused states are computed under the pre-edit context", "status": "supported_inference"}, {"claim": "可编辑实时上下文会成为持久化 prompt injection 的通道", "evidence": "§6 Discussion, p.10", "status": "reported"}], "uncertainties": ["摘要写 Software World 为 same compute，而正文和附录说明该实验成本是累计 API spend（USD）；两者口径需要区分。", "BCP 的 11.4% 是相对提升，正文没有在该句给出基线绝对百分比；笔记不把其换算成绝对百分点。", "ContextBench 是合成的流式上下文诊断，虽然能隔离记忆与推理，但没有覆盖长文档歧义、多工具副作用、权限隔离和用户纠错等真实交互。", "数学优化四项仅每题一次运行，且报告 best-of-run；缺少 seed、方差或独立重复，结果更适合作为方向性证据。", "SCR 的 held-out 准确率匹配只在一个 Qwen3.6-27B 服务配置和 BCP 830 题上集中展示；K 的敏感性只在 64 题和单个模型上测量。", "ContextBench 的 CLM 与基线分别获得方法专属 skill，有利于公平使用工具，却使提示内容、上下文接口与策略约束共同变化，单独机制贡献未识别。", "主结果包含 proprietary API 模型与长时分任务，论文没有给出所有 endpoint 的稳定版本标识、完整日志和独立复跑。", "RL 的最终模型选择在 500 个 held-out OpenResearcher 问题上进行，随后在 BCP 评测；不同训练的随机种子和方差未在本笔记可读文本中报告。", "没有 Zotero 标注，因此 `key_quotes` 为空；所有精读来自 PDF 的 Python 文本抽取，没有从图像像素补充事实。"], "open_questions": ["在相同 prompt 长度、相同文件访问权限和相同预算提醒下，仅开启实时上下文改写能带来多少独立收益？", "哪些编辑模式最容易导致事实丢失、权限泄漏或持久化注入？能否为上下文文件建立可验证的写前约束和审计日志？", "把 SCR 的缓存近似与任务风险联系起来，能否按编辑跨度、注意力层类型和 token 位置给出误差界？", "在真实团队协作、多智能体共享状态与长文档编辑中，模型控制的上下文能否保持可解释性并支持回滚？", "RL 的效率优势能否跨任务域、跨模型规模迁移，还是会被特定 training reward 与 judge 偏置放大？", "ContextBench 的四项任务与真实长程任务之间的相关性如何，哪些新增压力因素最能预测 agent 的长期表现？", "开放实验与模型资源后，外部团队能否在固定硬件上复现 BCP、EdgeBench 与 SCR 的关键数值？"], "key_quotes": [], "module_notes": {}, "schema_version": 4, "zotero_key": "local-8ff6ed83", "sections": [{"heading": "Abstract", "number": "", "page": 1, "level": 2, "summary": "摘要提出 **Context Language Models**：把实时上下文当作文件，让模型自由修改。报告的四组证据分别覆盖 BrowseComp-Plus、EdgeBench、24 小时多仓库 agent swarm、技能演化和 RL，并给出 **Suffix Cache Reuse** 的服务端计算收益。", "analysis": "摘要把多个实验、预算和参照对象压缩在一段话中：11.4% 指相对最强基线的准确率提升，5% EdgeBench 增益与 35.9 点技能演化增量各有不同口径。阅读主文时应按任务、模型、计算预算和评价单位逐项核对，避免把这些百分比视为同一种效应。"}, {"heading": "Introduction", "number": "1", "page": 1, "level": 2, "summary": "引言把长程上下文管理描述为语言模型的缺失能力：已有工作依赖固定 harness 或受限工具，而 CLM 允许模型自行决定如何重写上下文。作者将形式化定义、ContextBench、prefix-reuse FLOPs、技能演化、RL 与 SCR 组织为一条论证线。", "analysis": "“The Bitter Lesson”式叙述提供了研究动机，尚未构成机制证据。该节汇集了后面多个实验的结论，许多跨任务收益属于预报告；真正可检验的关键是 §5 中是否有匹配预算、相同 harness 与可重复评测支持这些说法。"}, {"heading": "Related Work", "number": "2", "page": 3, "level": 2, "summary": "相关工作按 **harness 调度**与**模型受控动作**两条路线组织。固定摘要、定期压缩和受限的压缩/卸载/检索工具增加了模型自主性，但仍把可执行动作和策略交给外部系统预先规定；RLM 则关注读取输入，未提供实时历史的原位改写。", "analysis": "这种分类清楚地把“何时/怎样改上下文”与“怎样读取外部输入”分开。作者对现有系统的定位来自文献比较，本文未重跑这些系统；因此“更充分的编辑自由带来更好策略”仍是待实验检验的假设，不能从 taxonomy 直接得出。"}, {"heading": "Pilot Study with ContextBench: A Diagnostic for Context Management", "number": "3", "page": 3, "level": 2, "summary": "试点引入 ContextBench 的四个任务：逐字保留 needle、原位更新数独、从大值批次卸载与检索 KV，以及从日志批次回答计数/查找。32K 窗口下压力升至 24×，用于暴露摘要丢失、整表重写和无法按需逐出上下文等失败。", "analysis": "任务刻意降低推理负担，使表现更接近纯粹上下文管理能力；方法专属 skill 也帮助排除工具使用误解。图形和文字描述了基线失败，本节没有单独给出数值表，因而更适合作为诊断设计依据，不能独立支持 CLM 相对基线的整体优势。"}, {"heading": "Context Language Models (CLMs)", "number": "4", "page": 4, "level": 2, "summary": "该节是 CLM 方法总入口，正文只有标题；具体形式化、学习路径与服务优化分别放在 4.1–4.3。", "analysis": "保留顶层标题有助于阅读层级。单独阅读这一块无法得到机制细节，后续分析应回到三个小节区分**接口自由度**、**训练目标**与**服务近似**。"}, {"heading": "Formal Definition and Implementation with Context as a File", "number": "4.1", "page": 4, "level": 3, "summary": "标准 LM 只能把输出追加到历史，CLM 则允许任意由模型控制的上下文转移。实现把实时上下文映射为可写文件，模型通过 Bash 增删、重排或压缩；每个修改同步给下一次 LLM 调用。多个上下文文件可支持子智能体与 agent swarm。图 3 展示了维护状态板、添加内部 notes 角色、用循环压缩搜索结果和定义复用函数等行为。", "analysis": "文件接口使模型能执行任意编辑，但可用行为仍受 Bash、system prompt、文件路径与同步实现约束，“unrestricted”描述的是编辑空间的开阔程度。定性案例来自零样本运行，有助于说明能力形态，不能量化这些策略对成绩的贡献。实时可写状态还扩大了持久化注入面。"}, {"heading": "In-Context Learning and Reinforcement Learning for CLMs", "number": "4.2", "page": 5, "level": 3, "summary": "CLM 可通过三种方式学习上下文策略：在 prompt 中加入技能或指令；用 proposer 在训练 rollout 上提出候选技能，在开发集选择并最后测 held-out；用 stepwise GRPO 将完整轨迹结果优势广播到各模型调用。**success-gated efficiency advantage** 只在成功轨迹内部按 prefix-reuse FLOPs 奖励低成本样本，并裁剪到 [-1,1]。", "analysis": "成功门控避免了直接奖励“删得多”导致的信息破坏，FLOPs 项也同时考虑编辑触发的重算。组内成功轨迹少于两条时效率优势置零，这在困难任务上会让效率信号稀疏；训练稳定性、不同 KL/权重设置与 reward hacking 仍未在本节展开。"}, {"heading": "(More) Efficient CLM Serving with Suffix Cache Reuse", "number": "4.3", "page": 6, "level": 3, "summary": "SCR 处理原位编辑导致的缓存失配。若原上下文为 [A B C]、编辑后为 [A B' C]，标准 prefix cache 会重新 prefill B' 与 C；SCR 迁移仍存活的 C 缓存、重算位置编码，并只对 B' 或新文本重新计算。存活的缓存状态来自编辑前上下文，因此保留了一定陈旧信息。", "analysis": "该方法把节省重算建立在**近似状态复用**上，而非精确重算；准确率保持需要经验验证。它也不替代 CLM 的上下文策略，服务端优化只影响相同行为下的成本，判断主结果时应把零样本效果与 SCR 节省分开。"}, {"heading": "Results", "number": "5", "page": 7, "level": 2, "summary": "结果主节依次组织零样本长程任务、上下文与权重学习以及 SCR 服务评测。", "analysis": "此块只含标题，没有独立证据。各子节使用不同模型、任务长度和预算，应分别解释，不能合并成单一“总体准确率”。"}, {"heading": "Evaluating CLMs  Zero-Shot  on Long-Horizon Agentic Tasks", "number": "5.1", "page": 7, "level": 3, "summary": "零样本测试覆盖终端编码、深度研究、数学发现、单仓库优化和多仓库 swarm，时间尺度从数小时到一天，交互从数十轮到上千轮。", "analysis": "这一节说明评测覆盖的**时间与协作维度**，具体模型、预算与指标在 5.1.1–5.1.2 展开。广泛任务列表本身不提供可比性；需要核对每个子实验是否使用相同 backbone、上下文窗口和成本口径。"}, {"heading": "Coding and Deep Research Tasks", "number": "5.1.1", "page": 7, "level": 4, "summary": "在共享 Mini-SWE-Agent 与 32K 预算下，Qwen3.6-27B 的 CLM 在 BCP 得 **59.4%**，相对 Codex-style summary 高 11.4%，并用少 21.5% 的 prefix-reuse FLOPs。TerminalBench 2.1 匹配最强基线且只使用其 70% 计算；TBLite 达到 73.7%，对基线的 67.0%，计算为其 91%。", "analysis": "BCP 的相对增益与 TBLite 的绝对百分点差都支持工程收益。这里的“match”意味着未观察到优于 summary 的准确率，优势集中在计算效率。所有方法共享 harness 和模型的描述增强了可比性，但方法专属技能与不同的上下文交互仍属于复合干预。"}, {"heading": "Open Discovery Problems", "number": "5.1.2", "page": 7, "level": 4, "summary": "开放发现问题包括四个 AlphaEvolve/OpenEvolve 数学题、EdgeBench-10 的单仓库 12 小时优化，以及 Software World 中六个相互依赖仓库、四个 unseen downstream 包的 24 小时协作。CLM 在数学题四题的 best-of-run 分数均最高；EdgeBench 上为 44.6/179 PFLOPs 对 42.3/437，Software World 在同一支出下报告 65% 更大下游加速。", "analysis": "这些任务把上下文管理放在真实的工具循环、验证器反馈与长时间交互中，外部效度强于 ContextBench。数学题每题仅一次运行并使用 best-of-run；Software World 的成本按 **API USD** 计算，摘要中的 “same compute” 与该口径不完全相同。EdgeBench 的子智能体版本在 32K 下只增加少量收益，说明多文件多 agent 并不自动获益。"}, {"heading": "Learning Better Context-Management Strategies in  Context  or in  Weights", "number": "5.2", "page": 8, "level": 3, "summary": "一句自然语言指令就能改变压缩触发阈值、在子问题边界压缩以及压缩前备份的行为。技能演化在 ContextBench 上扩展准确率–成本 Pareto 前沿；assisted 与 self-evolution 分别在 KV Store 上优于初始策略。Qwen3.5-9B 经 RL 后 BCP 由 28.8% 升到 42.5%，同配方 summary 达到 42.1%；CLM 后训练使用 1.34 PFLOPs/question，后者为 2.19。", "analysis": "指令实验揭示模型可被显式引导，技能演化则测试了可复用过程知识；两者都属于模型能力的可学习性证据。RL 结果只在单一较小基座、一个训练域和一个 held-out benchmark 上呈现，训练随机性没有在本节量化。前训练 CLM 落后 summary 六点，也说明较小模型的自主上下文能力需要训练补足。"}, {"heading": "(More) Efficient Serving with Suffix Cache Reuse", "number": "5.3", "page": 9, "level": 3, "summary": "在与标准 SGLang 匹配的任务准确率 **60.2%** 下，SCR 只需 **65%** 的 prefix-reuse FLOPs，即降低约 35%。它也能利用聊天端点为隐藏 reasoning 而删去旧 token 的情况；830 题 BCP 上所有 prompt token 中，额外复用率 7.8 个百分点，其中 5.3 来自 reasoning stripping、2.5 来自其他上下文编辑。", "analysis": "匹配准确率让服务优化具有较强实用意义；结果主要集中在 Qwen3.6-27B 的 BCP 负荷，尚未证明对全部任务和模型无损。FLOPs 节省是模型计算估计，页面还报告 wall-clock 之外的服务端 token 构成，真实吞吐与能耗仍需单独测量。"}, {"heading": "Discussion and Future Work", "number": "6", "page": 10, "level": 2, "summary": "讨论首先指出模型可编辑上下文的安全风险：自生成指令或 prompt injection 可跨轮持久化，已有 compaction summary 中出现过未授权指令。未来方向包括扩大 CLM 的 RL，以及把现有 harness 的上下文变换蒸馏为 CLM 技能或权重。", "analysis": "安全讨论把权限边界放在方法核心之上；当前实验只测能力与效率，没有测恶意编辑、隔离、回滚或审计。harness-to-CLM 蒸馏被表述为研究计划，尚无对应的效果与资源结果，不能当成已验证的扩展路线。"}, {"heading": "A. Extended Related Work", "number": "", "page": 13, "level": 2, "summary": "附录按 harness 调度、受限动作空间、meta-harness 优化、REPL 变量、非前缀 KV 复用、上下文管理 RL、成功条件化效率目标和外部记忆展开。CLM 的区分点是让模型直接改写自身实时状态，并把外部 memory 与 live context 明确分开。", "analysis": "该综述较完整地连接了 agent harness、serving cache 与 memory 三条文献线，支持论文的跨层定位。比较仍以概念与引用为主，没有逐系统复跑；因此它说明设计空间，而不提供各机制的相对效果。"}, {"heading": "B. Suffix Cache Reuse", "number": "", "page": 14, "level": 2, "summary": "SGLang 的 radix tree 只复用最长相同前缀。SCR 对编辑前后的 prompt 做 diff，找到仍存活的后缀 span，迁移最多 K=6 个最长 span，重旋转 rotary keys；线性注意力层使用编辑前的 recurrent-state 快照。对多个存活 span，SCR 限制迁移数量以控制近似累积。", "analysis": "SCR 的实现细节说明收益来自避免重算未变文本，其正确性依赖旧状态与当前上下文差异可接受。线性注意力层继续从编辑前 snapshot 推进，可能使新增编辑内容在该层缺失，论文依赖后续完整 attention 层传播影响。K 的敏感性与准确率保持只在 64 题、一个模型上分析，泛化仍需扩大。"}, {"heading": "C. Prefix-Reuse FLOPs Computation", "number": "", "page": 17, "level": 2, "summary": "附录给出每 token 投影、MLP、attention score 与 decode 的 FLOPs 公式，并以 Qwen3.6-27B 的层数、hidden size、attention heads 和 Gated DeltaNet 结构代入。编辑造成 first mismatch 后，后续 token 需重新 prefill；illustrative 例子中起始编辑可让 turn 成本达到 append-only 的 7.7 倍。", "analysis": "该指标适合比较相同模型下编辑策略的计算负担，属于理论估计：忽略 embedding、归一化、激活、recurrent update 与硬件利用率。它能解释 prefix cache 的差别，不能直接替代 wall-clock 延迟、吞吐或美元成本。"}, {"heading": "D. ContextBench", "number": "", "page": 18, "level": 2, "summary": "ContextBench 把输入作为连续 user messages 推入上下文，模型只能在处理当前操作后请求下一项；每实例由 seed 生成并预检。任务针对保留、原位更新、KV 卸载检索与日志查询，评分检查模型当时拥有的上下文，磁盘中未被重新取回的内容不计分，并为任务与保留状态设置窗口预算。", "analysis": "这一协议把上下文管理从推理能力中分离出来，且给所有方法提供方法专属 skill，比较设计较透明。合成操作与固定 grader 提高可控性，也带来真实性缺口：自然语言歧义、工具副作用和长文档权限没有纳入。该基准适合作为机制诊断，不能单独代表生产智能体能力。"}, {"heading": "E. Experimental Configurations", "number": "", "page": 19, "level": 2, "summary": "附录列出每个系统的压缩策略与 skill，以及 ContextBench、TB2.1、TBLite、BCP、数学优化、EdgeBench-10、Software World、指令控制、技能演化和 RL 的模型、预算、turn/time limit、seeds 与评分。RL 配置包含 3,040 prompts、70 steps、每步 8 prompts×32 rollouts、16 张策略 GPU 与 48 张 rollout GPU。", "analysis": "这些细节提高了实验透明度，也显示评测混合了 API 模型、公开任务、长时分容器运行等多个平台，复现门槛很高。不同实验的 context budget、turn limit 和 judge 不完全相同，横跨任务比较时应回到各自配置，尤其不能把 BCP FLOPs 与 EdgeBench 长时间成本等同。"}, {"heading": "F. Supplementary Results", "number": "", "page": 24, "level": 2, "summary": "补充结果比较 Qwen3.5-9B 与 Qwen3.6-27B：较小模型编辑更少，中位峰值上下文更高，收益也更依赖模型能力。128K EdgeBench 中 CLM 为 47.3、subagent 版本 50.2，summary 47.8；技能演化在四个 ContextBench 任务的开发集显著提升，KV Store held-out 从 38.3% 到 74.2%；RL 训练曲线展示 accuracy 与 FLOPs 的变化。", "analysis": "规模对比支持“模型越能判断何时编辑，收益越大”的假设，不过两个模型属于同一家族且训练与推理配置不同。128K 下子智能体带来额外收益，而 32K 下收益很小，说明收益随预算和协作负载变化。补充结果仍未提供跨任务训练 seed 的完整不确定性。"}, {"heading": "G. Analysis on the Context Length Awareness of Existing LMs", "number": "", "page": 27, "level": 2, "summary": "通过让模型估计当前 prompt 的 token 数，论文发现长上下文下估计会聚集到固定桶值；Claude-4.6-Sonnet 倾向低估，GPT-5.4 的估计最接近实际。环境提供 token-count hint 能提升准确性，距离估计点更近的 hint 更有效。", "analysis": "该诊断解释了为什么 CLM 仍需要 2,048-token 余量提醒和外部 token 信息：自我管理要求模型知道何时接近窗口上限。实验只有每个模型 50 个输入，细节主要在图中；它支持 awareness 是限制，不能说明所有模型都会以同样方式失效。"}], "generated_at": "2026-11-11T18:14:55+0800", "research_context_id": null, "_field_updated_at": {}, "built_at": "2026-11-11T18:14:55+0800"};
+
+  // ── prose (multi-paragraph) fields ──
+  // These render as <p> blocks so \n\n in the text shows as real paragraphs.
+  // writeProse/readProse keep the round-trip lossless (text ⇄ <p> DOM).
+  var PROSE_FIELDS = {
+    objective:1, problem_landscape:1, approach:1, impact:1,
+    cost:1, experiments_results:1, relevance_to_my_work:1, custom_notes:1,
+    guide_background:1, guide_question:1, guide_approach:1,
+    guide_findings:1, guide_insight:1, guide_limitations:1
+  };
+  function isProseField(f){ return PROSE_FIELDS[f] === 1; }
+  // Lightweight, safe inline markdown. HTML is escaped first so raw tags can't
+  // inject; LaTeX delimiters ($…$, \(…\), $$…$$, \[…\]) survive untouched for
+  // MathJax to typeset afterwards. Works the same in every prose module,
+  // section summary/analysis, and quote block.
+  function mdInline(s){
+    s = String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic uses * only (not _), because _ is ubiquitous in LaTeX
+    // subscripts (x_i, _{i=1}) and would otherwise be mangled.
+    s = s.replace(/(^|[^*])\*([^*\s][^*]*?)\*/g, '$1<em>$2</em>');
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)/g, function(full, label, url){
+      var scheme = '';
+      var match = String(url).match(/^([a-z][a-z0-9+.-]*):/i);
+      scheme = match ? match[1].toLowerCase()+':' : '';
+      if (scheme && ['http:','https:','mailto:'].indexOf(scheme) < 0) return full;
+      var safeUrl = url.replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/[\r\n]/g,'');
+      return '<a href="'+safeUrl+'" target="_blank" rel="noopener noreferrer">'+label+'</a>';
+    });
+    return s;
+  }
+  // Display renderer: markdown + leaves math for MathJax. Stores raw source in
+  // data-tex so a typeset <mjx-container> never corrupts what gets saved.
+  function writeProse(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var lines = para.split('\n');
+      var ordered = lines.map(function(ln){ return ln.match(/^\s*\d+[.)]\s+(.+?)\s*$/); });
+      var unordered = lines.map(function(ln){ return ln.match(/^\s*[-*+]\s+(.+?)\s*$/); });
+      if (lines.length && ordered.every(function(m){ return m; })) {
+        var ol = document.createElement('ol'); ol.className = 'markdown-list';
+        ordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ol.appendChild(li); });
+        el.appendChild(ol); return;
+      }
+      if (lines.length && unordered.every(function(m){ return m; })) {
+        var ul = document.createElement('ul'); ul.className = 'markdown-list';
+        unordered.forEach(function(m){ var li=document.createElement('li'); li.innerHTML=mdInline(m[1]); ul.appendChild(li); });
+        el.appendChild(ul); return;
+      }
+      var p = document.createElement('p');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        var span = document.createElement('span');
+        span.innerHTML = mdInline(ln);
+        while (span.firstChild) p.appendChild(span.firstChild);
+      });
+      el.appendChild(p);
+    });
+    // leave el empty when there is no content so the CSS placeholder shows
+  }
+  // Edit renderer: raw source (markdown + LaTeX) as plain, editable text.
+  function showSource(el, text){
+    if (!el) return;
+    var s = (text == null ? '' : String(text)).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    el.dataset.tex = s;
+    el.innerHTML = '';
+    var paras = s.split(/\n[ \t]*\n+/);
+    paras.forEach(function(para){
+      para = para.replace(/^\n+|\n+$/g,'');
+      if (!para.trim()) return;
+      var p = document.createElement('p');
+      var lines = para.split('\n');
+      lines.forEach(function(ln, i){
+        if (i > 0) p.appendChild(document.createElement('br'));
+        p.appendChild(document.createTextNode(ln));
+      });
+      el.appendChild(p);
+    });
+  }
+  function readProse(el){
+    if (!el) return '';
+    // Prefer the preserved raw source (accurate even after MathJax typeset).
+    if (el.dataset.tex != null) {
+      return el.dataset.tex.replace(/\s+$/,'').trim();
+    }
+    var ps = el.querySelectorAll(':scope > p');
+    if (ps.length){
+      return Array.prototype.map.call(ps, function(p){
+        return p.innerText.replace(/\u00a0/g,' ').replace(/\s+$/,'').trim();
+      }).filter(function(t){ return t.length; }).join('\n\n');
+    }
+    return el.innerText.trim();
+  }
+
+  // ── path helpers ──
+  function getByPath(o, p){ return p.split(".").reduce(function(o,k){return o==null?o:o[k];},o); }
+  function setByPath(o, p, v){ var pts=p.split("."); var cur=o;
+    for(var i=0;i<pts.length-1;i++){var k=pts[i],nx=pts[i+1]; if(cur[k]==null)cur[k]=/^\d+$/.test(nx)?[]:{}; cur=cur[k];}
+    cur[pts[pts.length-1]]=v; }
+  function isListField(f){ return Array.isArray(getByPath(INITIAL,f)); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function topOf(el){ return el.getBoundingClientRect().top + window.scrollY; }
+
+  function collectEdits(statusOverride){
+    var edits = {};
+    var fieldTimes = clone(INITIAL._field_updated_at || {});
+    var nowStamp = new Date().toISOString();
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f = el.dataset.field;
+      if (f.indexOf('key_quotes.')===0) return;
+      var nextValue;
+      if (isListField(f)) {
+        var items=[]; el.querySelectorAll('li').forEach(function(li){ var t=li.innerText.trim(); if(t)items.push(t); });
+        nextValue=items; setByPath(edits,f,items);
+      } else if (isProseField(f)) {
+        nextValue=readProse(el); setByPath(edits,f,nextValue);
+      } else { nextValue=el.innerText.trim(); setByPath(edits,f,nextValue); }
+      if(JSON.stringify(getByPath(INITIAL,f))!==JSON.stringify(nextValue)) fieldTimes[f]=nowStamp;
+    });
+    var quotes=[];
+    document.querySelectorAll('.quote-block').forEach(function(b){
+      var tEl=b.querySelector('.quote-text'), nEl=b.querySelector('.quote-note'), m=b.querySelector('.quote-meta');
+      var qt = (tEl && tEl.dataset.tex != null) ? tEl.dataset.tex.trim() : (tEl ? tEl.innerText.trim() : "");
+      var qn = (nEl && nEl.dataset.tex != null) ? nEl.dataset.tex.trim() : (nEl ? nEl.innerText.trim() : "");
+      quotes.push({text:qt,note:qn,page:m?m.dataset.page:"",color:m?m.dataset.color:""});
+    });
+    if (quotes.length || (INITIAL.key_quotes&&INITIAL.key_quotes.length)) edits.key_quotes=quotes;
+    if(JSON.stringify(INITIAL.key_quotes||[])!==JSON.stringify(quotes)) fieldTimes.key_quotes=nowStamp;
+    var secArr = collectSections();
+    if (secArr.length || (INITIAL.sections&&INITIAL.sections.length)) edits.sections = secArr;
+    if(JSON.stringify(INITIAL.sections||[])!==JSON.stringify(secArr)) fieldTimes.sections=nowStamp;
+    Object.keys(INITIAL).forEach(function(k){ if(!(k in edits)) edits[k]=INITIAL[k]; });
+    edits.module_notes = collectModuleNotes();   // per-module marginalia
+    edits.status = statusOverride || currentStatus;
+    edits._field_updated_at = fieldTimes;
+    edits.exported_at = new Date().toISOString();
+    edits.zotero_key = ZKEY;
+    edits.schema_version = INITIAL.schema_version || 3;
+    return edits;
+  }
+
+  var saveDot = document.getElementById('saveDot');
+  function markDirty(){ saveDot.className='save-dot is-dirty'; }
+  function markSaved(){ saveDot.className='save-dot is-saved'; setTimeout(function(){saveDot.className='save-dot';},1200); }
+  function markSynced(){ saveDot.className='save-dot is-synced'; }
+
+  // ── localStorage save ──
+  function saveToLS(statusOverride){
+    var edits = collectEdits(statusOverride);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(edits)); } catch(e){}
+    return edits;
+  }
+  function saveEdits(){
+    var edits = saveToLS();
+    if (dirHandle) { writeToFile(edits); } else { markSaved(); }
+  }
+  var saveTimer=null;
+  document.addEventListener('input', function(e){
+    var t=e.target;
+    if (t && t.classList && t.classList.contains('note-area')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800); updateNotesCount(); return;
+    }
+    if (t && t.hasAttribute && t.hasAttribute('contenteditable')){
+      markDirty(); clearTimeout(saveTimer); saveTimer=setTimeout(saveEdits,800);
+    }
+  });
+  document.addEventListener('keydown', function(e){ if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();saveEdits();} });
+
+  // ── File System Access API: sync to folder ──
+  var dirHandle = null;
+  var IDB_NAME = 'litreader-fs', IDB_STORE = 'handles';
+
+  function idbGet(key){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) { resolve(null); return; }
+          var tx = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(key);
+          tx.onsuccess = function(){ resolve(tx.result||null); };
+          tx.onerror = function(){ resolve(null); };
+        };
+        r.onerror = function(){ resolve(null); };
+      } catch(e){ resolve(null); }
+    });
+  }
+  function idbSet(key, val){
+    return new Promise(function(resolve){
+      try {
+        var r = indexedDB.open(IDB_NAME, 1);
+        r.onupgradeneeded = function(e){ e.target.result.createObjectStore(IDB_STORE); };
+        r.onsuccess = function(e){
+          var db = e.target.result; var tx = db.transaction(IDB_STORE,'readwrite');
+          tx.objectStore(IDB_STORE).put(val, key); tx.oncomplete=function(){resolve(true);}; tx.onerror=function(){resolve(false);};
+        };
+      } catch(e){ resolve(false); }
+    });
+  }
+  function isFsApi(){ return 'showDirectoryPicker' in window; }
+
+  async function writeToFile(edits){
+    if (!dirHandle) return;
+    try {
+      var target = dirHandle;
+      try { target = await dirHandle.getDirectoryHandle('papers', {create:false}); } catch(e){ target = dirHandle; }
+      var fh = await target.getFileHandle(ZKEY + '.edits.json', {create:true});
+      var w = await fh.createWritable();
+      await w.write(JSON.stringify(edits, null, 2));
+      await w.close();
+      markSynced();
+    } catch(err) {
+      toast('写文件失败：'+err.message);
+      markSaved();
+    }
+  }
+
+  async function connectFolder(){
+    if (!isFsApi()) { toast('当前浏览器不支持 File System Access API；请用 Export JSON 手动导出'); return; }
+    try {
+      var dh = await window.showDirectoryPicker({mode:'readwrite'});
+      dirHandle = dh;
+      await idbSet(LS_DIR, dh);
+      var btn = document.getElementById('btnSync');
+      btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+      markSynced();
+      saveEdits();
+      toast('已连接文件夹，编辑与状态将自动写入 ' + ZKEY + '.edits.json');
+    } catch(err) { /* user cancelled */ }
+  }
+  document.getElementById('btnSync').addEventListener('click', connectFolder);
+
+  (async function(){
+    if (!isFsApi()) return;
+    var stored = await idbGet(LS_DIR);
+    if (stored) {
+      var perm = await stored.queryPermission({mode:'readwrite'});
+      if (perm === 'granted') {
+        dirHandle = stored;
+        var btn = document.getElementById('btnSync');
+        btn.textContent = 'Synced ✓'; btn.classList.add('is-connected');
+        markSynced();
+      } else if (perm === 'prompt') {
+        var btn2 = document.getElementById('btnSync');
+        btn2.textContent = 'Reconnect Folder';
+      }
+    }
+  })();
+
+  // ── load + apply ──
+  function collectSections(){
+    var arr=[];
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      arr.push({
+        heading: card.dataset.heading||"",
+        page: card.dataset.page||"",
+        level: card.classList.contains('lvl3')?3:2,
+        synthetic: card.dataset.synthetic?true:false,
+        summary: sumEl?readProse(sumEl):"",
+        analysis: anaEl?readProse(anaEl):""
+      });
+    });
+    return arr;
+  }
+  function applySectionsToDom(secArr){
+    if (!secArr || !secArr.length) return;
+    document.querySelectorAll('.sec-card').forEach(function(card){
+      var idx=parseInt(card.dataset.index,10);
+      var s=secArr[idx];
+      if(!s) return;
+      var sumEl=card.querySelector('.sec-summary');
+      var anaEl=card.querySelector('.sec-analysis');
+      if(sumEl && s.summary!=null) writeProse(sumEl, s.summary);
+      if(anaEl && s.analysis!=null) writeProse(anaEl, s.analysis);
+    });
+  }
+  function collectModuleNotes(){
+    var obj = {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = ta.value.trim();
+      if (v) obj[ta.dataset.module] = v;
+    });
+    return obj;
+  }
+  function applyModuleNotes(edits){
+    var mn = edits.module_notes || {};
+    document.querySelectorAll('.note-area').forEach(function(ta){
+      var v = mn[ta.dataset.module];
+      if (v != null) ta.value = v;
+    });
+  }
+  function applyEditsToDom(edits){
+    document.querySelectorAll('[data-field]').forEach(function(el){
+      var f=el.dataset.field;
+      if (f.indexOf('key_quotes.')===0){
+        var m=f.match(/^key_quotes\.(\d+)\.(text|note)$/);
+        if(m){ var q=(edits.key_quotes||[])[parseInt(m[1],10)]; if(q) writeProse(el, q[m[2]]||""); }
+        return;
+      }
+      if (isListField(f)) {
+        var arr=getByPath(edits,f)||[]; el.innerHTML=''; arr.forEach(function(it){var li=document.createElement('li'); li.innerHTML=mdInline(it); el.appendChild(li);});
+      } else if (isProseField(f)) {
+        var vp=getByPath(edits,f); if(vp!=null) writeProse(el, vp);
+      } else { var v=getByPath(edits,f); if(v!=null) el.innerText=v; }
+    });
+    applySectionsToDom(edits.sections);
+    applyModuleNotes(edits);
+  }
+
+  // ── export / import ──
+  function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('is-visible'); setTimeout(function(){t.classList.remove('is-visible');},2400); }
+  document.getElementById('btnExport').addEventListener('click', function(){
+    saveToLS(); var edits=collectEdits();
+    var blob=new Blob([JSON.stringify(edits,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob); var a=document.createElement('a');
+    a.href=url; a.download=ZKEY+'.edits.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url); toast('已导出 '+ZKEY+'.edits.json');
+  });
+  var importInput=document.getElementById('importInput');
+  document.getElementById('btnImport').addEventListener('click', function(){ importInput.click(); });
+  importInput.addEventListener('change', function(e){
+    var file=e.target.files[0]; if(!file) return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      try { var edits=JSON.parse(ev.target.result); localStorage.setItem(LS_KEY,JSON.stringify(edits));
+        if (edits.status) setStatus(edits.status, false);
+        applyEditsToDom(edits); updateNotesCount(); toast('已导入编辑'); markSaved();
+        if (dirHandle) writeToFile(edits);
+      } catch(err){ toast('导入失败：'+err.message); }
+    };
+    reader.readAsText(file); importInput.value='';
+  });
+
+  // ── status ──
+  var currentStatus = "reading" || "reading";
+  function setStatus(s, persist){
+    currentStatus = s;
+    document.querySelectorAll('.status-btn').forEach(function(b){ b.classList.toggle('is-active', b.dataset.status===s); });
+    if (persist) {
+      var edits = saveToLS(s);
+      if (dirHandle) writeToFile(edits);
+      toast('Status → '+s+'；已写入 '+ZKEY+'.edits.json');
+    }
+  }
+  document.querySelectorAll('.status-btn').forEach(function(b){
+    b.addEventListener('click', function(){ setStatus(b.dataset.status, true); });
+  });
+  var storedEdits = null;
+  try { storedEdits = localStorage.getItem(LS_KEY) ? JSON.parse(localStorage.getItem(LS_KEY)) : null; } catch(e){}
+  var savedStatus = (storedEdits && storedEdits.status) || "reading" || "reading";
+  try { var ls = localStorage.getItem(LS_STATUS); if (ls) savedStatus = ls; } catch(e){}
+  currentStatus = savedStatus;
+  setStatus(currentStatus, false);
+
+  // ── accent theme switcher ──
+  var accentDots = document.querySelectorAll('.accent-dot');
+  function setAccent(a, persist){
+    document.body.setAttribute('data-accent', a);
+    accentDots.forEach(function(d){ d.classList.toggle('is-active', d.dataset.accent === a); });
+    if (persist) { try { localStorage.setItem(LS_ACCENT, a); } catch(e){} }
+  }
+  var savedAccent = "blue";
+  try { var sa = localStorage.getItem(LS_ACCENT); if (sa) savedAccent = sa; } catch(e){}
+  setAccent(savedAccent, false);
+  accentDots.forEach(function(d){
+    d.addEventListener('click', function(){ setAccent(d.dataset.accent, true); });
+  });
+
+  // ── progress rail ──
+  function onProgress(){
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var p = h > 0 ? (window.scrollY / h) * 100 : 0;
+    var rail = document.getElementById('progressRail');
+    if (rail) rail.style.width = p + '%';
+  }
+  window.addEventListener('scroll', onProgress, {passive:true});
+  window.addEventListener('resize', onProgress, {passive:true});
+
+  // ── left TOC + scroll-spy (shared with notes) ──
+  function buildNav(){
+    var toc = document.getElementById('toc');
+    if (!toc) return;
+    var list = document.createElement('div'); list.className='toc-list';
+    var modules = Array.prototype.slice.call(document.querySelectorAll('.module'));
+    if (!modules.length) { toc.style.display='none'; return; }
+
+    var mainLinks = [], subLinks = [], noteCards = [], navTargets = [];
+    modules.forEach(function(mod){
+      var id = mod.id;
+      var h2 = mod.querySelector('.sec-h');
+      var idx = h2.querySelector('.sec-index') ? h2.querySelector('.sec-index').textContent : '';
+      var name = h2.querySelector('.sec-name') ? h2.querySelector('.sec-name').textContent : h2.textContent;
+      var a = document.createElement('a');
+      a.className='toc-link'; a.href='#'+id; a.dataset.module=id;
+      a.innerHTML = '<span class="toc-num">'+idx+'</span><span class="toc-label">'+name+'</span>';
+      list.appendChild(a);
+      mainLinks.push(a);
+      navTargets.push({id:id, el:mod, type:'main'});
+      // sub-modules (only meaningful under 09, but generic)
+      mod.querySelectorAll('.submod > h3').forEach(function(h3){
+        if (!h3.id) h3.id = id + '-' + h3.textContent.replace(/\s+/g,'-');
+        var sa = document.createElement('a');
+        sa.className='toc-sublink'; sa.href='#'+h3.id; sa.dataset.sub=h3.id;
+        sa.innerHTML = '<span class="toc-subnum">·</span><span class="toc-sublabel">'+h3.textContent+'</span>';
+        list.appendChild(sa);
+        subLinks.push(sa);
+        navTargets.push({id:h3.id, el:h3, type:'sub'});
+      });
+    });
+    toc.appendChild(list);
+
+    noteCards = Array.prototype.slice.call(document.querySelectorAll('.note-card'));
+
+    navTargets.sort(function(a,b){ return topOf(a.el) - topOf(b.el); });
+    var linkMap = {}; mainLinks.forEach(function(l){ linkMap[l.dataset.module]=l; });
+    var subMap = {}; subLinks.forEach(function(l){ subMap[l.dataset.sub]=l; });
+
+    function onScroll(){
+      var pos = window.scrollY + 130;
+      var active = navTargets[0];
+      navTargets.forEach(function(t){ if (topOf(t.el) <= pos) active = t; });
+      mainLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      subLinks.forEach(function(l){ l.classList.remove('is-active'); });
+      noteCards.forEach(function(n){ n.classList.remove('is-active'); });
+      if (active) {
+        if (active.type === 'main') {
+          var lk = linkMap[active.id]; if (lk) lk.classList.add('is-active');
+        } else {
+          var sl = subMap[active.id]; if (sl) sl.classList.add('is-active');
+          var pm = active.el.closest('.module');
+          if (pm) { var lk2 = linkMap[pm.id]; if (lk2) lk2.classList.add('is-active'); }
+        }
+        var modEl = active.type === 'main' ? active.el : active.el.closest('.module');
+        noteCards.forEach(function(n){ n.classList.toggle('is-active', n.dataset.module === modEl.id); });
+      }
+    }
+    window.addEventListener('scroll', onScroll, {passive:true});
+    window.addEventListener('resize', onScroll, {passive:true});
+    onScroll();
+  }
+
+  // ── note jump + section → note focus ──
+  function wireNotes(){
+    document.querySelectorAll('.note-jump').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var el = document.getElementById(btn.dataset.target);
+        if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
+      });
+    });
+    document.querySelectorAll('.sec-h').forEach(function(h2){
+      h2.addEventListener('click', function(){
+        var mod = h2.closest('.module'); if (!mod) return;
+        var card = document.querySelector('.note-card[data-module="'+mod.id+'"]');
+        if (card) card.scrollIntoView({behavior:'smooth', block:'center'});
+      });
+    });
+  }
+
+  function updateNotesCount(){
+    var n = 0;
+    document.querySelectorAll('.note-area').forEach(function(ta){ if (ta.value.trim()) n++; });
+    var el = document.getElementById('notesCount');
+    if (el) el.textContent = n;
+  }
+
+  // ── math typeset (MathJax) ──
+  // Typeset the whole document. Called on init (guarded) and again by the
+  // MathJax startup promise once the library is ready.
+  function litTypeset(){
+    if (window.MathJax && MathJax.typesetPromise) {
+      try { MathJax.typesetPromise().catch(function(){}); } catch(e){}
+    }
+  }
+  window.litTypeset = litTypeset;
+
+  // Editable fields (summaries, quotes) must stay plaintext while the user is
+  // typing, but render math on blur. We keep the raw source in data-tex so the
+  // typeset <mjx-container> never corrupts what gets saved.
+  // Every editable field (the 8 prose modules, section summaries/analyses, and
+  // quote blocks) shares one round-trip: focus shows the raw markdown+LaTeX
+  // source so it's editable; blur re-renders markdown and re-typesets math.
+  // The raw source is always preserved in data-tex, so what gets saved to
+  // localStorage / edits.json is never the rendered <strong>/<mjx-container>.
+  function wireEditable(){
+    document.querySelectorAll('[data-field].editable, .quote-text, .quote-note, .sec-summary, .sec-analysis')
+      .forEach(function(el){
+        el.addEventListener('focus', function(){
+          if (el.dataset.tex != null) showSource(el, el.dataset.tex);
+        });
+        el.addEventListener('input', function(){
+          if (el.dataset.tex != null) el.dataset.tex = el.innerText;
+        });
+        el.addEventListener('blur', function(){
+          if (el.dataset.tex != null) writeProse(el, el.dataset.tex);
+          if (window.MathJax && MathJax.typesetPromise) {
+            try { MathJax.typesetPromise([el]).catch(function(){}); } catch(e){}
+          }
+        });
+      });
+  }
+
+  // ── lightbox for figures ──
+  function wireLightbox(){
+    var overlay = document.getElementById('lbOverlay');
+    var img = document.getElementById('lbImg');
+    var cap = document.getElementById('lbCaption');
+    var closeBtn = document.getElementById('lbClose');
+    if (!overlay || !img) return;
+    function open(src, caption){
+      img.src = src; cap.textContent = caption || '';
+      overlay.classList.add('is-open'); overlay.setAttribute('aria-hidden','false');
+    }
+    function close(){
+      overlay.classList.remove('is-open'); overlay.setAttribute('aria-hidden','true');
+      img.src = '';
+    }
+    document.querySelectorAll('.figure-card').forEach(function(card){
+      card.addEventListener('click', function(){
+        var im = card.querySelector('img'); if (!im) return;
+        var meta = card.querySelector('.figure-meta');
+        var caption = meta ? meta.innerText.replace(/\s+/g,' ').trim() : '';
+        open(im.getAttribute('src'), caption);
+      });
+    });
+    overlay.addEventListener('click', function(e){
+      if (e.target === overlay || e.target === closeBtn) close();
+    });
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && overlay.classList.contains('is-open')) close();
+    });
+  }
+
+  // ── init ──
+  // A rebuild bumps INITIAL.built_at. A stale localStorage snapshot from an
+  // older build (or a pre-fix broken sync) is discarded in favour of the
+  // freshly-built embedded data, so fixes always take effect on reload.
+  // A same-build localStorage copy (the user's own unsynced edits) is kept.
+  var stored = null;
+  try { stored = localStorage.getItem(LS_KEY); } catch(e){}
+  var storedObj = null;
+  try { storedObj = stored ? JSON.parse(stored) : null; } catch(e){ storedObj = null; }
+  var embeddedBuiltAt = (INITIAL && INITIAL.built_at) || null;
+  var storedBuiltAt = (storedObj && storedObj.built_at) || null;
+  if (storedObj && embeddedBuiltAt && storedBuiltAt && storedBuiltAt === embeddedBuiltAt) {
+    applyEditsToDom(storedObj);
+  } else {
+    applyEditsToDom(INITIAL);
+  }
+  buildNav();
+  wireNotes();
+  wireEditable();
+  wireLightbox();
+  updateNotesCount();
+  onProgress();
+  litTypeset();   // no-op until MathJax is ready; startup promise re-runs it
+})();
+</script>
+
+</body>
+</html>

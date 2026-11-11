@@ -1,0 +1,73 @@
+{
+  "zotero_key": "local-8ff6ed83",
+  "pdf_attachment_key": null,
+  "pdf_source": "local:bytes",
+  "count": 8,
+  "figures": [
+    {
+      "index": 1,
+      "filename": "local-8ff6ed83_fig01.png",
+      "page": 2,
+      "width": 5000,
+      "height": 2180,
+      "bytes": 801840
+    },
+    {
+      "index": 2,
+      "filename": "local-8ff6ed83_fig02.png",
+      "page": 4,
+      "width": 1320,
+      "height": 1440,
+      "bytes": 44303
+    },
+    {
+      "index": 3,
+      "filename": "local-8ff6ed83_fig03.png",
+      "page": 4,
+      "width": 1320,
+      "height": 1440,
+      "bytes": 53188
+    },
+    {
+      "index": 4,
+      "filename": "local-8ff6ed83_fig04.png",
+      "page": 4,
+      "width": 1320,
+      "height": 1440,
+      "bytes": 90675
+    },
+    {
+      "index": 5,
+      "filename": "local-8ff6ed83_fig05.png",
+      "page": 4,
+      "width": 1320,
+      "height": 1440,
+      "bytes": 101566
+    },
+    {
+      "index": 6,
+      "filename": "local-8ff6ed83_fig06.png",
+      "page": 6,
+      "width": 5100,
+      "height": 819,
+      "bytes": 133213
+    },
+    {
+      "index": 7,
+      "filename": "local-8ff6ed83_fig07.png",
+      "page": 15,
+      "width": 5100,
+      "height": 1632,
+      "bytes": 270957
+    },
+    {
+      "index": 8,
+      "filename": "local-8ff6ed83_fig08.png",
+      "page": 27,
+      "width": 5600,
+      "height": 1400,
+      "bytes": 542974
+    }
+  ],
+  "image_dir": "papers/local-8ff6ed83_images/"
+}
